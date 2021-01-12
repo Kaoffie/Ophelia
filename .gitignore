@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtualenv
+new-env/
+proj-env/
+py38-env/
+
+# Distribution / packaging
+.Python
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# PyCharm Workspace
+.idea/
+
+# Pylint
+pylintrc
+
+# Settings (containing token)
+ophelia/settings.py
+
+# Guild Settings
+*.sqlite
+*.yml
