@@ -218,7 +218,7 @@ class BaseEvent:
 
         if dm_target is not None:
             formatted_str = formatted_str.replace(
-                "%DM_NAME%", dm_target.display_name
+                "%NOTIF_NAME%", dm_target.display_name
             )
 
         return formatted_str

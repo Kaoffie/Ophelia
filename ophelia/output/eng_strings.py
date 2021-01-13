@@ -169,8 +169,8 @@ events_edit_rejection_dm_error_desc = "Ophelia has rejected an edit to {} but co
 events_save_title = "Saved event log."
 events_save_desc = "The events and event log configurations have been saved to the backup database."
 
-events_subscribe = "Subscribed to event notifications for {}"
-events_unsubscribe = "Unsubscribed from event notifications for {}"
+events_subscribe = "\u23f0 Subscribed to event notifications for {}!"
+events_unsubscribe = "\u274c Unsubscribed from event notifications for {}!"
 
 events_vars = "Variable placeholders:\n```\n%NAME%         Organizer display name\n%TITLE%        Title of event\n%DESC%         Description of event\n%PING%         Organizer ping\n%DM_MSG%       DM Message\n```"
 events_notif_vars = "Variable placeholders:\n```\n%NAME%         Organizer display name\n%TITLE%        Title of event\n%DESC%         Description of event\n%PING%         Organizer ping\n%DM_MSG%       DM Message\n%NOTIF_NAME%   Notification target name\n```"

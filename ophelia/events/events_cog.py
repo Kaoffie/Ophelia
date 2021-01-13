@@ -304,8 +304,8 @@ class EventsCog(commands.Cog, name="events"):
         """Check for event notification and timeout updates."""
         event_log: GuildEventLog
         for event_log in self.guild_event_logs.values():
-            await event_log.check_notify()
             await event_log.check_start()
+            await event_log.check_notify()
             await event_log.check_timeout()
 
     @commands.Cog.listener()
