@@ -930,6 +930,12 @@ class GuildEventLog:
                     channel=self.calendar_channel
                 )
 
+                # Distribute DM
+                await upcoming_event.distribute_dm(
+                    self.dm_template,
+                    self.organizer_dm_template
+                )
+
                 # Update time if it's a recurring event
                 if isinstance(upcoming_event, RecurringEvent):
                     upcoming_event.update_time()
@@ -945,12 +951,6 @@ class GuildEventLog:
                             "Tried to update recurring event that doesn't have "
                             "a calendar entry."
                         )
-
-                # Distribute DM
-                await upcoming_event.distribute_dm(
-                    self.dm_template,
-                    self.organizer_dm_template
-                )
 
                 # Create new ongoing event
                 ongoing_event = OngoingEvent(
