@@ -114,7 +114,8 @@ class BaseEvent:
             image: str,
             dm_msg: str,
             start_time: int,
-            notif_min_before: int
+            notif_min_before: int,
+            notif_list: Optional[List[Member]] = None
     ) -> None:
         """
         Initializer for the BaseEvent class.
@@ -127,6 +128,7 @@ class BaseEvent:
         :param start_time: Event timestamp (UNIX, seconds accuracy)
         :param notif_min_before: When to send the event notification
             in terms of minutes before event start
+        :param notif_list: List of event subscribers
         :raises KeyError: Missing keyword arguments
         """
         self.organizer = organizer
@@ -139,7 +141,11 @@ class BaseEvent:
         self.notif_time = (
                 start_time - notif_min_before * 60
         )
-        self.notif_list: List[Member] = []
+
+        if notif_list is not None:
+            self.notif_list = notif_list
+        else:
+            self.notif_list: List[Member] = []
 
     def time_to_start(self, time: Optional[datetime] = None) -> bool:
         """
@@ -379,7 +385,7 @@ class BaseEvent:
         embed = await self.get_calendar_embed()
 
         for member in self.notif_list:
-            member_preamble = self.format_vars(message_preamble)
+            member_preamble = self.format_vars(message_preamble, member)
             await send_message(
                 channel=member,
                 text=member_preamble,
@@ -426,6 +432,15 @@ class BaseEvent:
             start_time = int(config_dict["start_time"])
             notif_min_before = int(config_dict["notif_min_before"])
 
+            notif_list: List[Member] = []
+            for subscriber in config_dict.get("notif_list", []):
+                try:
+                    subber = await guild.fetch_member(subscriber)
+                    notif_list.append(subber)
+                except FETCH_FAIL_EXCEPTIONS:
+                    # This is normal; people can leave the server.
+                    continue
+
             return {
                 "organizer": organizer,
                 "title": title,
@@ -433,7 +448,8 @@ class BaseEvent:
                 "image": image,
                 "dm_msg": dm_msg,
                 "start_time": start_time,
-                "notif_min_before": notif_min_before
+                "notif_min_before": notif_min_before,
+                "notif_list": notif_list
             }
 
         except (*FETCH_FAIL_EXCEPTIONS, KeyError, ValueError) as e:
@@ -453,7 +469,8 @@ class BaseEvent:
             "image": self.image,
             "dm_msg": self.dm_msg,
             "start_time": self.start_time,
-            "notif_min_before": self.notif_min_before
+            "notif_min_before": self.notif_min_before,
+            "notif_list": [m.id for m in self.notif_list]
         }
 
         return save_dict

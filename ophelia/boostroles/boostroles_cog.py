@@ -151,15 +151,20 @@ class BoostrolesCog(commands.Cog, name="boostroles"):
         if before.roles == after.roles:
             return
 
+        guild_id = after.guild.id
+        if guild_id not in self.boost_guilds:
+            return
+
         booster_role = after.guild.premium_subscriber_role
         if booster_role is None:
             return
 
         before_set = set(before.roles)
         after_set = set(after.roles)
-        new_roles = after_set - before_set
+        new_roles = after_set.symmetric_difference(before_set)
+
         if booster_role in new_roles:
-            boost_guild: BoostrolesGuild = self.boost_guilds[after.guild.id]
+            boost_guild: BoostrolesGuild = self.boost_guilds[guild_id]
             await boost_guild.update_booster(after)
 
     @commands.Cog.listener()

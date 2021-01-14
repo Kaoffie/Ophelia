@@ -732,13 +732,17 @@ class GuildEventLog:
 
         event = self.upcoming_events[message_id]
         if unsubscribe:
-            event.notif_list.remove(member)
-            await send_message(
-                channel=member,
-                text=disp_str("events_unsubscribe").format(
-                    event.title
+            try:
+                event.notif_list.remove(member)
+                await send_message(
+                    channel=member,
+                    text=disp_str("events_unsubscribe").format(
+                        event.title
+                    )
                 )
-            )
+            except ValueError:
+                # This is fine.
+                pass
         else:
             event.notif_list.append(member)
             await send_message(

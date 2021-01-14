@@ -1,12 +1,13 @@
 # Ophelia
 
-Ophelia 
+Modules
+
 - Reaction Roles
 - Server Event Calendar
 - Custom VC Rooms
 - Server Boost Roles
 
-Too busy
+Too busy to write anything more than this so here you go
 
 ---
 
@@ -37,18 +38,12 @@ Custom VC + Text channel pairs created by users. This isn't a new concept, but a
 - `&vc public` Make room public
 - `&vc private` Make room private
 - `&vc end` End call and delete room
-
-
 - `&vc add` Add member or role to room (e.g. `&vc add John`)
 - `&vc remove` Remove member or role from room (e.g. `&vc remove Moderator`)
-
-
 - `&vc name` Rename room
 - `&vc size` Set room size
 - `&vc bitrate` Set room bitrate
 - `&vc transfer` Transfer room ownership
-
-
 - `&vc setup` Set up VC room generator
 - `&vc listall` List all VC room generators
 - `&vc admindel` Delete a VC room generator
@@ -57,7 +52,7 @@ Custom VC + Text channel pairs created by users. This isn't a new concept, but a
 
 ## Boostroles
 
-For tracking and updating server boost reward roles. Not implemented yet.
+For tracking and updating server boost reward roles.
 
 #### Commands
 
@@ -70,6 +65,7 @@ For tracking and updating server boost reward roles. Not implemented yet.
 ---
 
 # Coming Soon
+(If I have the time, which is highly unlikely)
 
 - Banner slideshow
 
