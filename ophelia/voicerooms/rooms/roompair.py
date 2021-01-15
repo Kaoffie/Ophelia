@@ -76,7 +76,6 @@ class RoomPair:
             await self.voice_channel.edit(name=new_name)
 
         try:
-            print("Doing the change...")
             await asyncio.wait_for(change_name(), 5)
         except asyncio.TimeoutError as e:
             raise RoomRateLimited from e

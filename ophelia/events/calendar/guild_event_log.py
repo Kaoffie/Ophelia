@@ -936,6 +936,17 @@ class GuildEventLog:
                     self.organizer_dm_template
                 )
 
+                # Create new ongoing event
+                ongoing_event = OngoingEvent(
+                    countdown_time=upcoming_event.start_time,
+                    timeout_length=self.event_timeout,
+                    organizer_id=upcoming_event.organizer.id,
+                    message_text=ongoing_message.content,
+                    message_embed=ongoing_message.embeds[0]
+                )
+
+                self.ongoing_events[ongoing_message.id] = ongoing_event
+
                 # Update time if it's a recurring event
                 if isinstance(upcoming_event, RecurringEvent):
                     upcoming_event.update_time()
@@ -951,17 +962,6 @@ class GuildEventLog:
                             "Tried to update recurring event that doesn't have "
                             "a calendar entry."
                         )
-
-                # Create new ongoing event
-                ongoing_event = OngoingEvent(
-                    countdown_time=upcoming_event.start_time,
-                    timeout_length=self.event_timeout,
-                    organizer_id=upcoming_event.organizer.id,
-                    message_text=ongoing_message.content,
-                    message_embed=ongoing_message.embeds[0]
-                )
-
-                self.ongoing_events[ongoing_message.id] = ongoing_event
 
     async def check_start(self) -> None:
         """

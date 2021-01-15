@@ -44,9 +44,8 @@ class OngoingEvent:
         if time is None:
             time = utc_time_now()
 
-        return time >= to_utc_datetime(
-            self.countdown_time + self.timeout_length
-        )
+        check_time = to_utc_datetime(self.countdown_time + self.timeout_length)
+        return time >= check_time
 
     async def save_to_dict(self) -> dict:
         """
