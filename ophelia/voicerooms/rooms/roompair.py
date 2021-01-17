@@ -3,7 +3,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from discord import TextChannel, VoiceChannel
+from discord import Member, TextChannel, VoiceChannel
 
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
 
@@ -46,6 +46,16 @@ class RoomPair:
             await self.voice_channel.delete()
         except FETCH_FAIL_EXCEPTIONS:
             pass
+
+    async def kick_unauthorized(self) -> None:
+        """
+        Kick all users who don't have the permissions to join the room.
+        """
+        member: Member
+        for member in self.voice_channel.members:
+            perms = self.voice_channel.permissions_for(member)
+            if not perms.connect:
+                await member.move_to(None)
 
     async def rename(self, new_name: str) -> None:
         """

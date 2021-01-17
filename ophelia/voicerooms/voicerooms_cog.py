@@ -177,6 +177,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         """
         channel_id = message.channel.id
         if channel_id in self.text_room_map:
+            if message.author.bot:
+                return
+
             owner_id = self.text_room_map[channel_id]
             log_channel = self.rooms[owner_id].log_channel
 
@@ -251,12 +254,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
             # Grant read and write permissions:
             overwrite = text_channel.overwrites_for(member)
-            if (
-                    overwrite.send_messages is False
-                    or overwrite.read_messages is False
-            ):
-                overwrite.update(send_messages=True, read_messages=True)
-                await text_channel.set_permissions(member, overwrite=overwrite)
+            overwrite.update(send_messages=True, read_messages=True)
+            await text_channel.set_permissions(member, overwrite=overwrite)
 
     async def on_generator_join(
             self,
@@ -308,8 +307,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
             # Remove permissions:
             overwrite = text_channel.overwrites_for(member)
-            overwrite.update(send_messages=False, read_messages=False)
-            await text_channel.set_permissions(member, overwrite=overwrite)
+            await text_channel.set_permissions(member, overwrite=None)
 
     @commands.group(
         "voiceroom",
@@ -330,7 +328,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
     async def update_room_membership(
             room: RoomPair,
             member_or_role: Union[Member, Role],
-            remove: bool = False
+            new_value: Optional[bool] = True,
     ) -> None:
         """
         Update a member or a role's permissions in a room.
@@ -341,20 +339,19 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
         :param room: Room pair
         :param member_or_role: Member or role to be added or removed
-        :param remove: Whether to remove or add the role
+        :param new_value: New permissions value
         """
         voice_channel = room.voice_channel
 
         voice_overwrite = voice_channel.overwrites_for(member_or_role)
-        if remove:
-            voice_overwrite.update(view_channel=None, connect=None)
+        if new_value is not None:
+            voice_overwrite.update(view_channel=new_value, connect=new_value)
+            await voice_channel.set_permissions(
+                member_or_role,
+                overwrite=voice_overwrite
+            )
         else:
-            voice_overwrite.update(view_channel=True, connect=True)
-
-        await voice_channel.set_permissions(
-            member_or_role,
-            overwrite=voice_overwrite
-        )
+            await voice_channel.set_permissions(member_or_role, overwrite=None)
 
     @voiceroom.command(name="public")
     @VoiceroomsDecorators.pass_voiceroom
@@ -366,7 +363,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         """
         room: RoomPair = kwargs["room"]
         everyone = context.guild.default_role
-        await self.update_room_membership(room, everyone)
+        await self.update_room_membership(room, everyone, True)
         await send_simple_embed(context, "voicerooms_public")
 
     @voiceroom.command(name="private")
@@ -379,8 +376,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         """
         room: RoomPair = kwargs["room"]
         everyone = context.guild.default_role
-        await self.update_room_membership(room, everyone, remove=True)
+        await self.update_room_membership(room, everyone, False)
         await send_simple_embed(context, "voicerooms_private")
+        await room.kick_unauthorized()
 
     @voiceroom.command(name="end")
     @VoiceroomsDecorators.pass_voiceroom
@@ -408,7 +406,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param added: Discord member or role
         """
         room: RoomPair = kwargs["room"]
-        await self.update_room_membership(room, added)
+        await self.update_room_membership(room, added, True)
         await send_simple_embed(context, "voicerooms_add", added.mention)
 
     @voiceroom.command(name="remove", aliases=["kick"])
@@ -427,8 +425,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param removed: Discord member or role
         """
         room: RoomPair = kwargs["room"]
-        await self.update_room_membership(room, removed)
+        await self.update_room_membership(room, removed, None)
         await send_simple_embed(context, "voicerooms_remove", removed.mention)
+        await room.kick_unauthorized()
 
     @voiceroom.command(name="name", aliases=["rename"])
     @VoiceroomsDecorators.pass_voiceroom
@@ -513,7 +512,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             **kwargs
     ) -> None:
         """
-        Transfer ownership of a room to another user. TODO
+        Transfer ownership of a room to another user.
 
         :param context: Command context
         :param new_owner: New owner

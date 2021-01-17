@@ -3,6 +3,8 @@ Main bot module.
 
 Entry point for running the bot.
 """
+import asyncio
+import copy
 import sys
 import traceback
 from typing import Optional
@@ -197,11 +199,13 @@ async def stop_command(context: Context) -> None:
     await send_message(channel=context, text="I'll be back.")
     logger.info("Bot shutting down...")
 
-    for name in list(ophelia.cogs.keys()):
+    for name in copy.copy(list(ophelia.cogs.keys())):
         cog = ophelia.cogs[name]
         logger.info("Closing cog: {}", name)
         await cog.cog_save_all()
 
+    # Wait for all the cogs to close.
+    await asyncio.sleep(5)
     await ophelia.close()
 
 
