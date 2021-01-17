@@ -527,6 +527,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         if new_owner not in room.voice_channel.members:
             raise OpheliaCommandError("voicerooms_transfer_bad_owner")
 
+        try:
+            await room.transfer(context.author, new_owner)
+        except RoomRateLimited:
+            raise OpheliaCommandError("voicerooms_ratelimited")
+
         old_id = context.author.id
         new_id = new_owner.id
 
@@ -539,6 +544,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 "voicerooms_topic_format"
             ).format(new_owner.display_name)
         )
+
         await send_simple_embed(
             context,
             "voicerooms_transfer",
