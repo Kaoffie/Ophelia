@@ -5,16 +5,20 @@ Contains the Recurring event tracking class as well as relevant
 constants for time conversion.
 """
 import json
+from datetime import datetime
+from typing import Optional
 
-from discord import TextChannel, Guild, Colour, Embed, Message
+from discord import NoMoreItems, TextChannel, Guild, Colour, Embed, Message
 from loguru import logger
 
 from ophelia import settings
 from ophelia.events.calendar.base_event import BaseEvent, EventLoadError
 from ophelia.output import disp_str
 from ophelia.utils.text_utils import escape_json_formatting
+from ophelia.utils.time_utils import to_utc_datetime, utc_time_now
 
 DAY_SECONDS = 60 * 60 * 24
+MINUTE_SECONDS = 60
 
 
 class RecurringEvent(BaseEvent):
@@ -25,7 +29,10 @@ class RecurringEvent(BaseEvent):
         "target_channel",
         "post_template",
         "post_embed",
-        "repeat_interval"
+        "repeat_interval",
+        "next_content",
+        "event_cancelled",
+        "notified"
     ]
 
     @staticmethod
@@ -59,6 +66,46 @@ class RecurringEvent(BaseEvent):
         self.post_template = post_template
         self.post_embed = post_embed
         self.repeat_interval = repeat_interval
+        self.next_content: Optional[Message] = None
+        self.event_cancelled = False
+        self.notified = False
+
+    def time_to_notify(self, time: Optional[datetime] = None) -> bool:
+        """
+        Check if it's time to send out event notifications.
+
+        :param time: Time to check against
+        :return: Boolean representing if the notification time has
+            passed or if the event has already been notified
+        """
+        if self.notified:
+            return False
+
+        return super().time_to_notify()
+
+    async def distribute_dm(self, notif_msg: str, organizer_msg: str) -> None:
+        """
+        Send notification DMs to all members subscribed and mark the
+        event as notified.
+
+        :param notif_msg: Notification message format
+        :param organizer_msg: Organizer notification message format
+        """
+        self.notified = True
+        await super().distribute_dm(notif_msg, organizer_msg)
+
+    def time_to_update(self, time: Optional[datetime] = None) -> bool:
+        """
+        Check if it's time to update the event time to the next event.
+
+        :param time: Time to check against
+        :return: Boolean representing if the update time has
+            passed
+        """
+        if time is None:
+            time = utc_time_now()
+
+        return time >= to_utc_datetime(self.start_time)
 
     def update_time(self) -> None:
         """
@@ -77,6 +124,8 @@ class RecurringEvent(BaseEvent):
             )
 
         self.notif_time = self.start_time - self.notif_min_before * 60
+        self.event_cancelled = False
+        self.notified = False
 
     async def get_calendar_embed(
             self,
@@ -183,6 +232,28 @@ class RecurringEvent(BaseEvent):
 
         return save_dict
 
+    async def retrieve_content(self) -> None:
+        """
+        Retrieve an event post or inform the scheduler if there is
+        nothing to retrieve.
+
+        :raises NoMoreItems: When there are no messages to retrieve from
+            the queue
+        """
+        if self.next_content is not None or self.event_cancelled:
+            return
+
+        try:
+            self.next_content = await self.queue_channel.history(
+                limit=1,
+                oldest_first=True
+            ).next()
+        except NoMoreItems as e:
+            self.next_content = None
+            self.event_cancelled = True
+            logger.trace("No more items to retrieve for event {}.", self.title)
+            raise NoMoreItems from e
+
     async def send_event_post(self) -> None:
         """
         Send an event post.
@@ -194,12 +265,14 @@ class RecurringEvent(BaseEvent):
         :raises Forbidden: Could not send event post or delete old
             message
         """
-        dequeued_message: Message = await self.queue_channel.history(
-            limit=1,
-            oldest_first=True
-        ).next()
+        if self.event_cancelled or self.next_content is None:
+            logger.trace(
+                "No content to retrieve; skipping event post for {}",
+                self.title
+            )
+            return
 
-        message_content = dequeued_message.content
+        message_content = self.next_content.content
         escaped_content = escape_json_formatting(message_content)
         content_flag = "%CONTENT%"
 
@@ -213,11 +286,15 @@ class RecurringEvent(BaseEvent):
             embed = Embed.from_dict(json.loads(embed_json))
 
         if text is None and embed is None:
-            logger.warning("Recurring event {} scheduled an empty message")
+            logger.warning(
+                "Recurring event {} scheduled an empty message",
+                self.title
+            )
             return
 
         # Delete old message
-        await dequeued_message.delete()
+        await self.next_content.delete()
+        self.next_content = None
 
         # Post new message
         await self.target_channel.send(content=text, embed=embed)

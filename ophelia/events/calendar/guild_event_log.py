@@ -5,7 +5,8 @@ import copy
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from discord import (
-    Colour, Embed, Forbidden, Guild, HTTPException, Member, Message, TextChannel
+    Colour, Embed, Forbidden, Guild, HTTPException, Member, Message,
+    NoMoreItems, TextChannel
 )
 from loguru import logger
 
@@ -906,6 +907,22 @@ class GuildEventLog:
         except FETCH_FAIL_EXCEPTIONS:
             pass
 
+    async def check_retrieve(self) -> None:
+        """Check if any recurring events should retrieve post content."""
+        async with self.lock:
+            for upcoming_event in self.upcoming_events.values():
+                if not isinstance(upcoming_event, RecurringEvent):
+                    continue
+
+                if not upcoming_event.time_to_notify():
+                    continue
+
+                if isinstance(upcoming_event, RecurringEvent):
+                    try:
+                        await upcoming_event.retrieve_content()
+                    except NoMoreItems:
+                        continue
+
     async def check_notify(self) -> None:
         """
         Check if any of the upcoming events should be started and send
@@ -924,44 +941,37 @@ class GuildEventLog:
                     # Delete upcoming if it's a member event
                     await self.delete_upcoming_event(message_id)
 
-                # Send ongoing event message
-                ongoing_message = await upcoming_event.send_ongoing_message(
-                    notif_message=self.ongoing_template,
-                    channel=self.calendar_channel
-                )
-
-                # Distribute DM
-                await upcoming_event.distribute_dm(
-                    self.dm_template,
-                    self.organizer_dm_template
-                )
-
-                # Create new ongoing event
-                ongoing_event = OngoingEvent(
-                    countdown_time=upcoming_event.start_time,
-                    timeout_length=self.event_timeout,
-                    organizer_id=upcoming_event.organizer.id,
-                    message_text=ongoing_message.content,
-                    message_embed=ongoing_message.embeds[0]
-                )
-
-                self.ongoing_events[ongoing_message.id] = ongoing_event
-
-                # Update time if it's a recurring event
+                # Prepare message from the queue if it's recurring
+                stop_notifying = False
                 if isinstance(upcoming_event, RecurringEvent):
-                    upcoming_event.update_time()
-                    try:
-                        message = await self.calendar_channel.fetch_message(
-                            message_id
-                        )
-                        await message.edit(
-                            embed=await upcoming_event.get_calendar_embed()
-                        )
-                    except FETCH_FAIL_EXCEPTIONS:
-                        logger.warning(
-                            "Tried to update recurring event that doesn't have "
-                            "a calendar entry."
-                        )
+                    stop_notifying = (
+                            upcoming_event.event_cancelled
+                            or upcoming_event.notified
+                    )
+
+                if not stop_notifying:
+                    # Send ongoing event message
+                    ongoing_message = await upcoming_event.send_ongoing_message(
+                        notif_message=self.ongoing_template,
+                        channel=self.calendar_channel
+                    )
+
+                    # Distribute DM
+                    await upcoming_event.distribute_dm(
+                        self.dm_template,
+                        self.organizer_dm_template
+                    )
+
+                    # Create new ongoing event
+                    ongoing_event = OngoingEvent(
+                        countdown_time=upcoming_event.start_time,
+                        timeout_length=self.event_timeout,
+                        organizer_id=upcoming_event.organizer.id,
+                        message_text=ongoing_message.content,
+                        message_embed=ongoing_message.embeds[0]
+                    )
+
+                    self.ongoing_events[ongoing_message.id] = ongoing_event
 
     async def check_start(self) -> None:
         """
@@ -990,6 +1000,32 @@ class GuildEventLog:
                         "events_recurring_error",
                         upcoming_event.title
                     ) from e
+
+    async def check_update(self) -> None:
+        """Check if any recurring events should be updated."""
+        async with self.lock:
+            # We loop through a list of keys because we are going to
+            # mutate the dictionary as we loop through it.
+            for message_id in copy.copy(list(self.upcoming_events.keys())):
+                upcoming_event = self.upcoming_events[message_id]
+                # Update time if it's a recurring event
+                if isinstance(upcoming_event, RecurringEvent):
+                    if not upcoming_event.time_to_update():
+                        continue
+
+                    upcoming_event.update_time()
+                    try:
+                        message = await self.calendar_channel.fetch_message(
+                            message_id
+                        )
+                        await message.edit(
+                            embed=await upcoming_event.get_calendar_embed()
+                        )
+                    except FETCH_FAIL_EXCEPTIONS:
+                        logger.warning(
+                            "Tried to update recurring event that doesn't have "
+                            "a calendar entry."
+                        )
 
     async def check_timeout(self) -> None:
         """Check if any of the ongoing events should be timed out."""
