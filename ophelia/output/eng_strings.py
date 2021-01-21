@@ -337,6 +337,8 @@ voicerooms_filter_deleted_desc = "Removed room name regex filter: `{}`"
 Boostroles
 '''''''"""
 
+boostroles_wait_title = "Syncing Boost Roles"
+boostroles_wait_desc = "This will take a while..."
 boostroles_list_full_item = "・{status} {role} from {booster} given to {target}"
 boostroles_list_item = "・{status} {role} for {booster}"
 boostroles_status_true = "\u2705"

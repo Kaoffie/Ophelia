@@ -116,20 +116,28 @@ class Boostrole:
             boosting, thus triggering a role removal (False)
         """
         is_boosting = await self.check_boost_status(guild, booster_role)
-        if not is_boosting:
+        try:
+            if not is_boosting:
+                logger.trace(
+                    "Removing boost role {} from {}",
+                    self.role.name,
+                    self.target.display_name
+                )
+                await self.target.remove_roles(self.role)
+            else:
+                logger.trace(
+                    "Adding boost role {} to {}",
+                    self.role.name,
+                    self.target.display_name
+                )
+                await self.target.add_roles(self.role)
+        except FETCH_FAIL_EXCEPTIONS:
             logger.trace(
-                "Removing boost role {} from {}",
-                self.role.name,
-                self.target.display_name
+                "Could not add/remove role {}; "
+                "perhaps user has left guild?",
+                self.role.name
             )
-            await self.target.remove_roles(self.role)
-        else:
-            logger.trace(
-                "Adding boost role {} to {}",
-                self.role.name,
-                self.target.display_name
-            )
-            await self.target.add_roles(self.role)
+
         return is_boosting
 
 
