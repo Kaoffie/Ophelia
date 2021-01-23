@@ -346,7 +346,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
         voice_overwrite = voice_channel.overwrites_for(member_or_role)
         if new_value is not None:
-            voice_overwrite.update(view_channel=new_value, connect=new_value)
+            voice_overwrite.update(connect=new_value)
             await voice_channel.set_permissions(
                 member_or_role,
                 overwrite=voice_overwrite

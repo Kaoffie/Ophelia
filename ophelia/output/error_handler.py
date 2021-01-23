@@ -20,6 +20,7 @@ COMMAND_ERRORS = {
     "UserInputError": "command_error_user_input_error",
     "ConversionError": "command_error_conversion_error",
     "BadArgument": "command_error_bad_argument",
+    "BadUnionArgument": "command_error_bad_argument",
     "MissingRequiredArgument": "command_error_missing_required_arugment",
     "UnexpectedQuoteError": "command_error_unexpected_quote_error",
     "InvalidEndOfQuotedStringError": (

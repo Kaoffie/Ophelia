@@ -35,7 +35,8 @@ from loguru import logger
 from ophelia import settings
 from ophelia.output import (
     ConvertFailureException, ConvertNotFoundException, disp_str,
-    response_convert, response_switch, response_yaml, send_embed, send_message,
+    response_convert, response_switch, response_yaml, send_embed,
+    send_error_embed, send_message,
     send_simple_embed
 )
 from ophelia.output.error_handler import OpheliaCommandError
@@ -1205,8 +1206,14 @@ class ReactroleCog(commands.Cog, name="reactrole"):
                 remove_role_options,
                 user_input.content
             )
-        except asyncio.TimeoutError as e:
-            raise OpheliaCommandError("reactrole_dm_timeout") from e
+        except asyncio.TimeoutError:
+            # We can't just raise an OpheliaCommandError here because
+            # this wasn't triggered by a command.
+            await send_error_embed(
+                channel=member,
+                title=disp_str("reactrole_dm_timeout_title"),
+                desc=disp_str("reactrole_dm_timeout_desc")
+            )
         except (Forbidden, HTTPException):
             logger.warning(
                 "Reactrole could not perform DM role assignment for "
