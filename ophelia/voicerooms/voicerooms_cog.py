@@ -4,6 +4,7 @@ Voice rooms module.
 Gives users the power to create and manage their own voice chat channels
 instead of relying on pre-defined channels.
 """
+import copy
 import functools
 import os
 import re
@@ -124,8 +125,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         await self.message_buffer.dump()
 
         # Delete all channels
-        for room in self.rooms.values():
-            await room.destroy()
+        for room_key in copy.copy(list(self.rooms.keys())):
+            await self.rooms[room_key].destroy()
 
         # Saves all generators
         await self.save_generators()
@@ -522,6 +523,10 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         # Check if member is a bot
         if new_owner.bot:
             raise OpheliaCommandError("voicerooms_transfer_bot")
+
+        # Check if member already owns a room
+        if new_owner.id in self.rooms:
+            raise OpheliaCommandError("voicerooms_transfer_already_owner")
 
         # Check if member is in the voice room
         if new_owner not in room.voice_channel.members:

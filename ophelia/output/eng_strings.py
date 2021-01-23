@@ -320,6 +320,8 @@ voicerooms_transfer_bot_title = "Invalid member"
 voicerooms_transfer_bot_desc = "You cannot transfer a room to a bot!"
 voicerooms_transfer_bad_owner_title = "Member not in channel"
 voicerooms_transfer_bad_owner_desc = "You can only transfer ownership of this room to users who are connected to the room."
+voicerooms_transfer_already_owner_title = "Member is an owner of another voice channel"
+voicerooms_transfer_already_owner_desc = "This member is already the owner of another room!"
 voicerooms_transfer_title = "Room transfered"
 voicerooms_transfer_desc = "New owner: {}"
 

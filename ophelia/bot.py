@@ -204,8 +204,9 @@ async def stop_command(context: Context) -> None:
         logger.info("Closing cog: {}", name)
         await cog.cog_save_all()
 
-    # Wait for all the cogs to close.
-    await asyncio.sleep(5)
+        # Wait for the cog to close.
+        await asyncio.sleep(5)
+
     await ophelia.close()
 
 
