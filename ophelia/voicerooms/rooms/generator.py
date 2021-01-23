@@ -113,7 +113,7 @@ class Generator:
         if self.owner_voice_perms is not None:
             voice_overwrites[member] = self.owner_voice_perms
 
-        voice_channel = await self.text_category.create_voice_channel(
+        voice_channel = await self.voice_category.create_voice_channel(
             name=disp_str("voicerooms_room_format").format(display_name),
             overwrites=voice_overwrites
         )
