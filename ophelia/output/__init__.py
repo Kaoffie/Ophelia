@@ -178,9 +178,11 @@ async def send_embed(
         )
 
         if embed_fallback:
-            field_text = "\n\n".join(
-                f"**{title}**\n{text}" for title, text, inline in fields
-            )
+            field_text = ""
+            if fields is not None and len(fields) > 0:
+                field_text = "\n\n".join(
+                    f"**{title}**\n{text}" for title, text, inline in fields
+                )
 
             try:
                 message = await send_message(
