@@ -3,7 +3,8 @@ import copy
 from typing import Dict, Optional, Union
 
 from discord import (
-    CategoryChannel, PermissionOverwrite, VoiceChannel, Member, Role,
+    CategoryChannel, HTTPException, PermissionOverwrite, VoiceChannel, Member,
+    Role,
     TextChannel, InvalidData
 )
 
@@ -17,6 +18,10 @@ from ophelia.voicerooms.rooms.roompair import RoomPair
 
 class GeneratorLoadError(Exception):
     """When generator fails to load from configuration."""
+
+
+class RoomCreationError(Exception):
+    """When bot fails to create a room."""
 
 
 class Generator:
@@ -97,6 +102,7 @@ class Generator:
         Create a new room pair for a user.
 
         :param member: Discord member
+        :raises RoomCreationError: When room creation fails
         """
         display_name = member.display_name
         text_overwrites = copy.copy(self.default_text_perms)
@@ -119,7 +125,7 @@ class Generator:
         )
 
         room = RoomPair(text_channel, voice_channel, self.log_channel)
-        if member.voice is not None:
+        try:
             await member.move_to(voice_channel)
             await send_message(
                 channel=text_channel,
@@ -127,6 +133,10 @@ class Generator:
                     member.mention
                 )
             )
+        except HTTPException:
+            # User is not connected to voice.
+            await room.destroy()
+            raise RoomCreationError
 
         return room
 

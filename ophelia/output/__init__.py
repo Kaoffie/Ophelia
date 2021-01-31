@@ -80,7 +80,7 @@ async def send_message(
         message = await channel.send(text, embed=embed)
         return message
     except Forbidden:
-        logger.warning(
+        logger.trace(
             "Failed to send message to channel ID {}",
             str(channel)
         )
@@ -96,7 +96,7 @@ async def send_message(
                 return message
             except HTTPException:
                 # Give up.
-                logger.error(
+                logger.trace(
                     "Failed to send message to channel {} "
                     "due to invalid argument.",
                     channel
@@ -191,7 +191,7 @@ async def send_embed(
 
                 return message
             except Forbidden:
-                logger.warning(
+                logger.trace(
                     "Failed to send message to channel ID {}",
                     str(channel)
                 )

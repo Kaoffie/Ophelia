@@ -275,14 +275,24 @@ class RecurringEvent(BaseEvent):
         message_content = self.next_content.content
         escaped_content = escape_json_formatting(message_content)
         content_flag = "%CONTENT%"
+        date_flag = "%DATE%"
+        date_today = datetime.today().strftime('%Y-%m-%d')
 
         text = None
         embed = None
 
         if self.post_template:
-            text = self.post_template.replace(content_flag, message_content)
+            text = (
+                self.post_template
+                    .replace(content_flag, message_content)
+                    .replace(date_flag, date_today)
+            )
         if self.post_embed:
-            embed_json = self.post_embed.replace(content_flag, escaped_content)
+            embed_json = (
+                self.post_embed
+                    .replace(content_flag, escaped_content)
+                    .replace(date_flag, date_today)
+            )
             embed = Embed.from_dict(json.loads(embed_json))
 
         if text is None and embed is None:

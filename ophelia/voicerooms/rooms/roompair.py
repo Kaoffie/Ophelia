@@ -49,16 +49,6 @@ class RoomPair:
         except FETCH_FAIL_EXCEPTIONS:
             pass
 
-    async def kick_unauthorized(self) -> None:
-        """
-        Kick all users who don't have the permissions to join the room.
-        """
-        member: Member
-        for member in self.voice_channel.members:
-            perms = self.voice_channel.permissions_for(member)
-            if not perms.connect:
-                await member.move_to(None)
-
     async def transfer(self, prev: Member, owner: Member) -> None:
         """
         Transfer room to new owner.

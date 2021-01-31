@@ -292,26 +292,20 @@ def group_strings(
         return []
 
     return_list = []
-    while strings:
-        if len(strings) == 1:
-            return_list.append(strings[0])
-            break
+    joiner_length = len(joiner)
 
-        buffer = ""
-        length_test = strings[0]
-
+    for string in strings:
         # Truncate.
-        if len(length_test) > max_length:
-            length_test = length_test[:max_length]
+        if len(string) > max_length:
+            string = string[:max_length]
 
-        index = 0
-        while index < len(strings) - 1 and len(length_test) <= max_length:
-            index += 1
-            buffer = length_test
-            length_test += joiner + strings[index]
+        if not return_list:
+            return_list.append(string)
+            continue
 
-        return_list.append(buffer)
-        strings = strings[index:]
+        last_string = return_list[-1]
+        if len(last_string) + joiner_length + len(string) <= max_length:
+            return_list[-1] = last_string + joiner + string
 
     return return_list
 

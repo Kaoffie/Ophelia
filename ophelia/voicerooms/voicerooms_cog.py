@@ -4,6 +4,7 @@ Voice rooms module.
 Gives users the power to create and manage their own voice chat channels
 instead of relying on pre-defined channels.
 """
+import asyncio
 import copy
 import functools
 import os
@@ -29,12 +30,16 @@ from ophelia.output.error_handler import OpheliaCommandError
 from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS
 )
-from ophelia.voicerooms.rooms.generator import Generator, GeneratorLoadError
+from ophelia.voicerooms.rooms.generator import (
+    Generator, GeneratorLoadError,
+    RoomCreationError
+)
 from ophelia.voicerooms.message_buffer import MessageBuffer
 from ophelia.voicerooms.rooms.roompair import RoomPair, RoomRateLimited
 from ophelia.voicerooms.config_options import VOICEROOMS_GENERATOR_CONFIG
 from ophelia.voicerooms.name_filter import NameFilterManager
 
+CONFIG_VOICEROOM_TIMEOUT = settings.voiceroom_empty_timeout
 CONFIG_TIMEOUT_SECONDS = settings.long_timeout
 CONFIG_MAX_TRIES = settings.max_tries
 CONFIG_PATH = settings.file_voicerooms_config
@@ -54,7 +59,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         "vc_room_map",
         "text_room_map",
         "message_buffer",
-        "name_filter"
+        "name_filter",
+        "generator_lock"
     ]
 
     # Using forward references to avoid cyclic imports
@@ -72,6 +78,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         self.text_room_map: Dict[int, int] = {}
         self.message_buffer = MessageBuffer()
         self.name_filter = NameFilterManager.load_filters()
+        self.generator_lock = asyncio.Lock()
 
     # pylint: disable=too-few-public-methods
     class VoiceroomsDecorators:
@@ -182,9 +189,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 return
 
             owner_id = self.text_room_map[channel_id]
-            log_channel = self.rooms[owner_id].log_channel
 
-            await self.message_buffer.log_message(log_channel, message)
+            try:
+                log_channel = self.rooms[owner_id].log_channel
+
+                await self.message_buffer.log_message(log_channel, message)
+            except KeyError:
+                # Zombie room, delete channel.
+                await message.channel.delete()
+                self.text_room_map.pop(channel_id, None)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: GuildChannel) -> None:
@@ -250,13 +263,18 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             if member.id == owner_id:
                 return
 
-            room: RoomPair = self.rooms[owner_id]
-            text_channel = room.text_channel
+            try:
+                room: RoomPair = self.rooms[owner_id]
+                text_channel = room.text_channel
 
-            # Grant read and write permissions:
-            overwrite = text_channel.overwrites_for(member)
-            overwrite.update(send_messages=True, read_messages=True)
-            await text_channel.set_permissions(member, overwrite=overwrite)
+                # Grant read and write permissions:
+                overwrite = text_channel.overwrites_for(member)
+                overwrite.update(send_messages=True, read_messages=True)
+                await text_channel.set_permissions(member, overwrite=overwrite)
+            except KeyError:
+                # Invalid zombie room; delete VC.
+                await channel.delete()
+                self.vc_room_map.pop(channel_id, None)
 
     async def on_generator_join(
             self,
@@ -269,13 +287,25 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param member: Guild member
         :param generator: Room generator
         """
-        if member.id in self.rooms:
-            return
+        async with self.generator_lock:
+            if member.id in self.rooms:
+                return
 
-        room: RoomPair = await generator.create_room(member)
-        self.rooms[member.id] = room
-        self.vc_room_map[room.voice_channel.id] = member.id
-        self.text_room_map[room.text_channel.id] = member.id
+            try:
+                room: RoomPair = await generator.create_room(member)
+            except RoomCreationError:
+                # Room has already been destroyed; fail silently.
+                return
+
+            self.rooms[member.id] = room
+            self.vc_room_map[room.voice_channel.id] = member.id
+            self.text_room_map[room.text_channel.id] = member.id
+
+            # Check if room is occupied, or if the user has left the
+            # room during channel creation.
+            if not room.voice_channel.members:
+                await self.delete_room(member.id)
+                return
 
     async def on_voice_leave(
             self,
@@ -292,23 +322,33 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
         if channel_id in self.vc_room_map:
             owner_id = self.vc_room_map[channel_id]
-            room: RoomPair = self.rooms[owner_id]
-            text_channel = room.text_channel
-            voice_channel = room.voice_channel
 
-            # Check if channel is empty:
-            if not voice_channel.members:
-                await self.delete_room(owner_id)
-                return
+            try:
+                room: RoomPair = self.rooms[owner_id]
+                text_channel = room.text_channel
+                voice_channel = room.voice_channel
 
-            # Before we remove permissions, we check that the user is
-            # not an owner.
-            if member.id == owner_id:
-                return
+                # Before we remove permissions, we check that the user is
+                # not an owner.
+                if member.id != owner_id:
+                    await text_channel.set_permissions(member, overwrite=None)
 
-            # Remove permissions:
-            overwrite = text_channel.overwrites_for(member)
-            await text_channel.set_permissions(member, overwrite=None)
+                # In case of a misclick, give the user a chance to rejoin:
+                await asyncio.sleep(CONFIG_VOICEROOM_TIMEOUT)
+
+                # While waiting, the channel might have been deleted.
+                if channel_id not in self.vc_room_map:
+                    return
+
+                # Check if channel is empty:
+                if not voice_channel.members:
+                    await self.delete_room(owner_id)
+                    return
+
+            except KeyError:
+                # Zombie room.
+                await channel.delete()
+                self.vc_room_map.pop(channel_id, None)
 
     @commands.group(
         "voiceroom",
@@ -360,11 +400,16 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         """
         Set current voice room to public.
 
+        This sets the default connection permissions to None instead of
+        True since what we want is to default to the server base perms
+        which would allow the server to control which roles get to join
+        using role perms.
+
         :param context: Command context
         """
         room: RoomPair = kwargs["room"]
         everyone = context.guild.default_role
-        await self.update_room_membership(room, everyone, True)
+        await self.update_room_membership(room, everyone, None)
         await send_simple_embed(context, "voicerooms_public")
 
     @voiceroom.command(name="private")
@@ -379,7 +424,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         everyone = context.guild.default_role
         await self.update_room_membership(room, everyone, False)
         await send_simple_embed(context, "voicerooms_private")
-        await room.kick_unauthorized()
+
+        for member in room.voice_channel.members:
+            await self.update_room_membership(room, member, True)
 
     @voiceroom.command(name="end")
     @VoiceroomsDecorators.pass_voiceroom
@@ -428,7 +475,14 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         room: RoomPair = kwargs["room"]
         await self.update_room_membership(room, removed, None)
         await send_simple_embed(context, "voicerooms_remove", removed.mention)
-        await room.kick_unauthorized()
+
+        if isinstance(removed, Member):
+            if removed in room.voice_channel.members:
+                await removed.move_to(None)
+        else:
+            for member in room.voice_channel.members:
+                if removed in member.roles:
+                    await member.move_to(None)
 
     @voiceroom.command(name="name", aliases=["rename"])
     @VoiceroomsDecorators.pass_voiceroom
@@ -503,24 +557,20 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         except ARGUMENT_FAIL_EXCEPTIONS as e:
             raise OpheliaCommandError("voicerooms_bitrate_invalid") from e
 
-    @voiceroom.command(name="transfer")
-    @VoiceroomsDecorators.pass_voiceroom
-    async def ownership_transfer(
+    async def transfer_room(
             self,
-            context: Context,
-            *,
-            new_owner: Member,
-            **kwargs
+            room: RoomPair,
+            old_owner: Member,
+            new_owner: Member
     ) -> None:
         """
-        Transfer ownership of a room to another user.
+        Transfer ownership of a room from one user to another user.
 
-        :param context: Command context
-        :param new_owner: New owner
+        :param room: Pair of rooms
+        :param old_owner: Previous owner
+        :param new_owner: New Owner
         """
-        room: RoomPair = kwargs["room"]
-
-        # Check if member is a bot
+        # Check if new owner is a bot
         if new_owner.bot:
             raise OpheliaCommandError("voicerooms_transfer_bot")
 
@@ -528,16 +578,12 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         if new_owner.id in self.rooms:
             raise OpheliaCommandError("voicerooms_transfer_already_owner")
 
-        # Check if member is in the voice room
-        if new_owner not in room.voice_channel.members:
-            raise OpheliaCommandError("voicerooms_transfer_bad_owner")
-
         try:
-            await room.transfer(context.author, new_owner)
+            await room.transfer(old_owner, new_owner)
         except RoomRateLimited:
             raise OpheliaCommandError("voicerooms_ratelimited")
 
-        old_id = context.author.id
+        old_id = old_owner.id
         new_id = new_owner.id
 
         self.text_room_map[room.text_channel.id] = new_id
@@ -550,6 +596,54 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             ).format(new_owner.display_name)
         )
 
+    @voiceroom.command(name="transfer")
+    @VoiceroomsDecorators.pass_voiceroom
+    async def ownership_transfer(
+            self,
+            context: Context,
+            *,
+            new_owner: Member,
+            **kwargs
+    ) -> None:
+        """
+        Command to transfer ownership of a room to another user.
+
+        :param context: Command context
+        :param new_owner: New owner
+        """
+        room: RoomPair = kwargs["room"]
+
+        # Check if member is in the voice room
+        if new_owner not in room.voice_channel.members:
+            raise OpheliaCommandError("voicerooms_transfer_bad_owner")
+
+        await self.transfer_room(room, context.author, new_owner)
+        await send_simple_embed(
+            context,
+            "voicerooms_transfer",
+            new_owner.mention
+        )
+
+    @voiceroom.command(name="forcetransfer", aliases=["ftransfer"])
+    @commands.has_guild_permissions(administrator=True)
+    async def force_transfer(
+            self,
+            context: Context,
+            old_owner: Member,
+            new_owner: Member
+    ) -> None:
+        """
+        Command to force a transfer form a member to another member.
+
+        :param context: Command context
+        :param old_owner: Old owner
+        :param new_owner: New owner
+        """
+        if old_owner.id not in self.rooms:
+            raise OpheliaCommandError("voicerooms_transfer_bad_old_owner")
+
+        room: RoomPair = self.rooms[old_owner.id]
+        await self.transfer_room(room, old_owner, new_owner)
         await send_simple_embed(
             context,
             "voicerooms_transfer",
@@ -786,6 +880,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param owner_id: Room owner
         """
         room = self.rooms.pop(owner_id, None)
+        if room is None:
+            return
+
         self.vc_room_map.pop(room.voice_channel.id, None)
         self.text_room_map.pop(room.text_channel.id, None)
         await room.destroy()

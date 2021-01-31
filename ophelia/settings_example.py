@@ -86,6 +86,10 @@ new_member_threshold = 86400
 # Max cache size
 max_cache_size = 300
 
+# Voicerooms
+voiceroom_buffer_size = 5
+voiceroom_empty_timeout = 5.0
+
 # Substring spam limits
 substring_hard_limit = 4000
 substring_stop_limit = 2000
