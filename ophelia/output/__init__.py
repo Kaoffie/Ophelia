@@ -170,7 +170,7 @@ async def send_embed(
         message = await channel.send(None, embed=embed)
         return message
     except Forbidden:
-        logger.warning(
+        logger.trace(
             "Failed to send embed to channel ID {}; "
             "falling back on plain message: {}",
             str(channel),

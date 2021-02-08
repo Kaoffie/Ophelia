@@ -80,12 +80,19 @@ class RoomPair:
         member_voice = self.text_channel.overwrites_for(owner)
         member_text = self.text_channel.overwrites_for(owner)
 
-        # Swap
+        # Swap Voice
         await self.voice_channel.set_permissions(prev, overwrite=member_voice)
-        await self.text_channel.set_permissions(prev, overwrite=member_text)
-
         await self.voice_channel.set_permissions(owner, overwrite=owner_voice)
+
+        # Give new owner the necessary permissions
         await self.text_channel.set_permissions(owner, overwrite=owner_text)
+
+        # Old owner either gets stripped of all perms or gets the new
+        # owner's old perms if they're still in the voice channel
+        if prev in self.voice_channel.members:
+            await self.text_channel.set_permissions(prev, overwrite=member_text)
+        else:
+            await self.text_channel.set_permissions(prev, overwrite=None)
 
     async def rename(self, new_name: str) -> None:
         """

@@ -40,7 +40,7 @@ from ophelia.output import (
     send_simple_embed
 )
 from ophelia.output.error_handler import OpheliaCommandError
-from ophelia.reactrole.dm_lock import DMLock
+from ophelia.reactrole.dm_lock import AbortQueue, DMLock
 from ophelia.reactrole.reactrole_config import (
     InvalidReactConfigException, MessageConfig, ReactroleConfig, RoleMenuConfig,
     SingleRoleConfig
@@ -1206,7 +1206,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
                 remove_role_options,
                 user_input.content
             )
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             # We can't just raise an OpheliaCommandError here because
             # this wasn't triggered by a command.
             await send_error_embed(
@@ -1214,6 +1214,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
                 title=disp_str("reactrole_dm_timeout_title"),
                 desc=disp_str("reactrole_dm_timeout_desc")
             )
+            raise AbortQueue from e
         except (Forbidden, HTTPException):
             logger.warning(
                 "Reactrole could not perform DM role assignment for "

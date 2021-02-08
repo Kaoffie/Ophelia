@@ -473,6 +473,10 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param removed: Discord member or role
         """
         room: RoomPair = kwargs["room"]
+
+        if isinstance(removed, Role) and "mod" in removed.name.lower():
+            raise OpheliaCommandError("voicerooms_remove_mod")
+
         await self.update_room_membership(room, removed, None)
         await send_simple_embed(context, "voicerooms_remove", removed.mention)
 

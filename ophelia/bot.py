@@ -185,7 +185,7 @@ class OpheliaBot(dext.commands.Bot):
 ophelia = OpheliaBot()
 
 
-@ophelia.command("stop")
+@ophelia.command("botshutdown")
 @commands.is_owner()
 async def stop_command(context: Context) -> None:
     """

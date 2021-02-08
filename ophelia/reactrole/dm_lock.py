@@ -14,7 +14,11 @@ Also this file has more comments than actual code so that's fun.
 """
 
 from asyncio import Lock
-from typing import Dict, Callable, Any
+from typing import Dict, Callable, Any, Set
+
+
+class AbortQueue(Exception):
+    """When all queued calls are to be aborted."""
 
 
 # pylint: disable=too-few-public-methods
@@ -26,12 +30,19 @@ class DMLock:
     module queues DM role management tasks per user.
     """
 
-    __slots__ = ["waiting", "executing", "waiting_lock", "executing_lock"]
+    __slots__ = [
+        "waiting",
+        "executing",
+        "aborted",
+        "waiting_lock",
+        "executing_lock"
+    ]
 
     def __init__(self) -> None:
         """Initializer for the DMLock class."""
         self.waiting: Dict[int, Lock] = {}
         self.executing: Dict[int, Lock] = {}
+        self.aborted: Set[int] = set()
         self.waiting_lock = Lock()
         self.executing_lock = Lock()
 
@@ -49,6 +60,10 @@ class DMLock:
         :param key: Key of FIFO queue
         """
         returner = None
+
+        # Check if the queue is in abort mode
+        if key in self.aborted:
+            return
 
         # Obtain the waiting room lock
         async with self.waiting_lock:
@@ -76,7 +91,13 @@ class DMLock:
                 # can wait for us to be done.
                 key_wait_lock.release()
                 self_waiting = False
-                returner = await call(*args, **kwargs)
+
+                # We check again if the queue is in abort mode.
+                if key not in self.aborted:
+                    try:
+                        returner = await call(*args, **kwargs)
+                    except AbortQueue:
+                        self.aborted.add(key)
 
         finally:
             # No matter what happens, we want to exit the waiting room
@@ -113,5 +134,6 @@ class DMLock:
                         # and the execution (without being in either),
                         # that edge case is impossible.
                         await self.executing.pop(key, None)
+                        self.aborted.discard(key)
 
         return returner
