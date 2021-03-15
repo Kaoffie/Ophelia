@@ -32,6 +32,7 @@ from ophelia.settings import voiceroom_max_mute_time
 from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS
 )
+from ophelia.utils.text_utils import escape_formatting
 from ophelia.voicerooms.rooms.generator import (
     Generator, GeneratorLoadError,
     RoomCreationError
@@ -345,6 +346,14 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
             try:
                 room: RoomPair = await generator.create_room(member)
+                await self.message_buffer.log_system_msg(
+                    log_channel=room.log_channel,
+                    text_channel=room.text_channel,
+                    text=disp_str("voicerooms_log_create_room").format(
+                        name=member.display_name,
+                        id=member.id
+                    )
+                )
             except RoomCreationError:
                 # Room has already been destroyed; fail silently.
                 return
@@ -394,6 +403,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
                 # Check if channel is empty:
                 if not voice_channel.members:
+                    await self.message_buffer.log_system_msg(
+                        log_channel=room.log_channel,
+                        text_channel=room.text_channel,
+                        text=disp_str("voicerooms_log_delete_room").format(
+                            room=room.voice_channel.name,
+                            name=member.display_name,
+                            id=member.id
+                        )
+                    )
                     await self.delete_room(owner_id)
                     return
 
@@ -463,6 +481,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         everyone = context.guild.default_role
         await self.update_room_membership(room, everyone, None)
         await send_simple_embed(context, "voicerooms_public")
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_public").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id
+            )
+        )
         room.current_mode = RoomMode.PUBLIC
 
     @voiceroom.command(name="joinmute")
@@ -503,6 +530,16 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         await self.update_room_membership(room, everyone, None)
 
         # Update room mode
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_joinmute").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                time=mute_time
+            )
+        )
         room.current_mode = RoomMode.JOINMUTE
 
     @voiceroom.command(name="private")
@@ -516,6 +553,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         room: RoomPair = kwargs["room"]
         everyone = context.guild.default_role
         await self.update_room_membership(room, everyone, False)
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_private").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id
+            )
+        )
         await send_simple_embed(context, "voicerooms_private")
         room.current_mode = RoomMode.PRIVATE
 
@@ -524,12 +570,23 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
     @voiceroom.command(name="end")
     @VoiceroomsDecorators.pass_voiceroom
-    async def room_end(self, context: Context, *_, **__) -> None:
+    async def room_end(self, context: Context, *_, **kwargs) -> None:
         """
         Delete current room.
 
         :param context: Command context
         """
+        room: RoomPair = kwargs["room"]
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_delete_room").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id
+            )
+        )
+
         await self.delete_room(context.author.id)
 
     @voiceroom.command(name="add")
@@ -549,6 +606,17 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         """
         room: RoomPair = kwargs["room"]
         await self.update_room_membership(room, added, True)
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_add").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(added.name),
+                target_id=added.id
+            )
+        )
         await send_simple_embed(context, "voicerooms_add", added.mention)
 
     @voiceroom.command(name="remove", aliases=["kick"])
@@ -577,6 +645,18 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         await self.update_room_membership(room, removed, None)
         await send_simple_embed(context, "voicerooms_remove", removed.mention)
 
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_remove").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(removed.name),
+                target_id=removed.id
+            )
+        )
+
         if isinstance(removed, Member):
             if removed in room.voice_channel.members:
                 await removed.move_to(None)
@@ -584,6 +664,92 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             for member in room.voice_channel.members:
                 if removed in member.roles:
                     await member.move_to(None)
+
+    @voiceroom.command(name="mute", aliases=["silence"])
+    @VoiceroomsDecorators.pass_voiceroom
+    async def room_mute(
+        self,
+        context: Context,
+        *,
+        member: Member,
+        **kwargs
+    ) -> None:
+        """
+        Mute a member.
+
+        :param context: Command context
+        :param member: Member to mute
+        """
+        room: RoomPair = kwargs["room"]
+
+        if context.author == member:
+            raise OpheliaCommandError("voicerooms_mute_self")
+
+        if member not in room.voice_channel.members:
+            raise OpheliaCommandError("voicerooms_mute_not_present")
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_mute").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(member.name),
+                target_id=member.id
+            )
+        )
+        overwrite = room.voice_channel.overwrites_for(member)
+        overwrite.update(speak=False)
+        await room.voice_channel.set_permissions(
+            member,
+            overwrite=overwrite
+        )
+
+        await send_simple_embed(context, "voicerooms_mute", member.mention)
+
+    @voiceroom.command(name="unmute", aliases=["unsilence"])
+    @VoiceroomsDecorators.pass_voiceroom
+    async def room_unmute(
+        self,
+        context: Context,
+        *,
+        member: Member,
+        **kwargs
+    ) -> None:
+        """
+        Unmte a member.
+
+        :param context: Command context
+        :param member: Member to mute
+        """
+        room: RoomPair = kwargs["room"]
+
+        if context.author == member:
+            raise OpheliaCommandError("voicerooms_unmute_self")
+
+        if member not in room.voice_channel.members:
+            raise OpheliaCommandError("voicerooms_unmute_not_present")
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_unmute").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(member.name),
+                target_id=member.id
+            )
+        )
+        overwrite = room.voice_channel.overwrites_for(member)
+        overwrite.update(speak=None)
+        await room.voice_channel.set_permissions(
+            member,
+            overwrite=overwrite
+        )
+
+        await send_simple_embed(context, "voicerooms_unmute", member.mention)
 
     @voiceroom.command(name="name", aliases=["rename"])
     @VoiceroomsDecorators.pass_voiceroom
@@ -604,6 +770,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             raise OpheliaCommandError("voicerooms_name_invalid")
 
         room: RoomPair = kwargs["room"]
+        prev: str = room.voice_channel.name
 
         try:
             await room.rename(new_name)
@@ -611,6 +778,17 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             raise OpheliaCommandError("voicerooms_ratelimited") from e
         except HTTPException as e:
             raise OpheliaCommandError("voicerooms_name_invalid") from e
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_rename").format(
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                prev=escape_formatting(prev),
+                curr=escape_formatting(new_name)
+            )
+        )
 
         await send_simple_embed(context, "voicerooms_name", new_name)
 
@@ -630,8 +808,21 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param size: New room size
         """
         room: RoomPair = kwargs["room"]
+        prev: int = room.voice_channel.user_limit
+
         try:
             await room.voice_channel.edit(user_limit=size)
+            await self.message_buffer.log_system_msg(
+                log_channel=room.log_channel,
+                text_channel=room.text_channel,
+                text=disp_str("voicerooms_log_resize").format(
+                    name=escape_formatting(context.author.name),
+                    id=context.author.id,
+                    prev=prev,
+                    curr=size
+                )
+            )
+
             await send_simple_embed(context, "voicerooms_size")
         except (*ARGUMENT_FAIL_EXCEPTIONS, KeyError, ValueError) as e:
             raise OpheliaCommandError("voicerooms_size_invalid") from e
@@ -652,8 +843,21 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param bitrate: New bitrate
         """
         room: RoomPair = kwargs["room"]
+        prev: int = room.voice_channel.bitrate
+
         try:
             await room.voice_channel.edit(bitrate=bitrate * 1000)
+            await self.message_buffer.log_system_msg(
+                log_channel=room.log_channel,
+                text_channel=room.text_channel,
+                text=disp_str("voicerooms_log_bitrate").format(
+                    name=escape_formatting(context.author.name),
+                    id=context.author.id,
+                    prev=prev/1000,
+                    curr=bitrate
+                )
+            )
+
             await send_simple_embed(context, "voicerooms_bitrate", bitrate)
         except ARGUMENT_FAIL_EXCEPTIONS as e:
             raise OpheliaCommandError("voicerooms_bitrate_invalid") from e
@@ -690,6 +894,17 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         self.text_room_map[room.text_channel.id] = new_id
         self.vc_room_map[room.voice_channel.id] = new_id
         self.rooms[new_id] = self.rooms.pop(old_id)
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_transfer").format(
+                name=escape_formatting(old_owner.name),
+                id=old_id,
+                new_name=escape_formatting(new_owner.name),
+                new_id=new_id
+            )
+        )
 
         await room.text_channel.edit(
             topic=disp_str(

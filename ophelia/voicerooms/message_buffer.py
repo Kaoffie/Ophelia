@@ -1,6 +1,7 @@
 """Message buffering module."""
 
 import asyncio
+from datetime import datetime
 from typing import Dict, List
 
 from discord import Message, TextChannel
@@ -9,7 +10,7 @@ from ophelia import settings
 from ophelia.output import disp_str, send_message
 from ophelia.utils.text_utils import (
     escape_formatting, group_strings,
-    string_wrap
+    quotify, string_wrap
 )
 
 LOG_WRAP = 1500
@@ -39,8 +40,10 @@ class MessageBuffer:
 
         :param message: Discord message
         """
+
         log_list = list()
         log_list.append(disp_str("voicerooms_log_header").format(
+            time=message.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             channel=message.channel.name,
             name=escape_formatting(message.author.name),
             discrim=message.author.discriminator,
@@ -58,7 +61,7 @@ class MessageBuffer:
             log_list += [
                 disp_str("voicerooms_log_tail").format(s)
                 for s in string_wrap(
-                    escape_formatting(message.content), LOG_WRAP
+                    quotify(escape_formatting(message.clean_content)), LOG_WRAP
                 )
             ]
 
@@ -87,6 +90,33 @@ class MessageBuffer:
 
             self.message_buffer.setdefault(channel, []).extend(
                 self.format_message(message)
+            )
+            self.current_size += 1
+
+        if self.current_size >= BUFFER_SIZE:
+            await self.dump()
+
+    async def log_system_msg(
+            self,
+            log_channel: TextChannel,
+            text_channel: TextChannel,
+            text: str
+    ) -> None:
+        """
+        Adds a raw system message to log.
+
+        :param log_channel: Log channel
+        :param text_channel: Relevant text channel
+        :param text: Text to be logged
+        """
+        async with self.lock:
+
+            self.message_buffer.setdefault(log_channel, []).append(
+                disp_str("voicerooms_raw_header").format(
+                    time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    channel=text_channel.name,
+                    text=text
+                )
             )
             self.current_size += 1
 

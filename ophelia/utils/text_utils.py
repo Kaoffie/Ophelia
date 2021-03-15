@@ -4,8 +4,9 @@ import re
 import unicodedata
 from typing import Any, Callable, List, Optional, Union
 
+import discord
 import emoji
-from discord import Emoji
+from discord import Emoji, Message
 from discord.ext.commands import Bot
 
 from ophelia.utils.time_utils import utc_time_now
@@ -242,19 +243,21 @@ def remove_accents(text: str) -> str:
 
 def escape_formatting(text: str) -> str:
     """
-    Replaces characters used in Discord formatting with similar-looking
-    characters.
+    Escapes characters used for markdown.
 
     :param text: Text to escape
     :return: Escaped text string
     """
-    # This does not return a one-tuple.
-    return (
-        text.replace("`", "‵")  # Grave accent -> Reversed prime
-            .replace("*", "⚹")  # Asterisk -> Sextile
-            .replace("~", "˜")  # Tilde -> Small tilde
-            .replace("_", "＿")  # Low line -> Full-width low line
-    )
+    # # This does not return a one-tuple.
+    # return (
+    #     text.replace("`", "‵")  # Grave accent -> Reversed prime
+    #         .replace("*", "⚹")  # Asterisk -> Sextile
+    #         .replace("~", "˜")  # Tilde -> Small tilde
+    #         .replace("_", "＿")  # Low line -> Full-width low line
+    #         .replace("|", "¦")  # Bar -> Broken bar
+    # )
+
+    return discord.utils.escape_markdown(text)
 
 
 def escape_json_formatting(text: str) -> str:
@@ -324,3 +327,14 @@ def string_wrap(text: str, wrap_length: int) -> List[str]:
         text = text[wrap_length:]
 
     return string_list
+
+
+def quotify(text: str) -> str:
+    """
+    Turn a string into a discord quote.
+
+    :param text: Text to put into quote
+    :return: Discord quote
+    """
+
+    return "> " + text.replace("\n", "\n> ")
