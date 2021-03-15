@@ -35,8 +35,9 @@ Custom VC + Text channel pairs created by users. This isn't a new concept, but a
 
 #### Commands
 
-- `&vc public` Make room public
-- `&vc private` Make room private
+- `&vc public` Set room to public mode
+- `&vc joinmute` Set room to joinmute mode (New users will be temporarily muted)
+- `&vc private` Set room to private mode
 - `&vc end` End call and delete room
 - `&vc add` Add member or role to room (e.g. `&vc add John`)
 - `&vc remove` Remove member or role from room (e.g. `&vc remove Moderator`)

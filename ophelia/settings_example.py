@@ -89,6 +89,8 @@ max_cache_size = 300
 # Voicerooms
 voiceroom_buffer_size = 5
 voiceroom_empty_timeout = 5.0
+voiceroom_mute_button_timeout = 900.0
+voiceroom_max_mute_time = 300
 
 # Substring spam limits
 substring_hard_limit = 4000

@@ -58,7 +58,8 @@ async def send_message(
         text: Optional[str],
         embed: Embed = None,
         token_guard: bool = False,
-        path_guard: bool = False
+        path_guard: bool = False,
+        mass_ping_guard: bool = False
 ) -> Message:
     """
     Sends a message to a given context or channel.
@@ -68,6 +69,7 @@ async def send_message(
     :param embed: Embed of message
     :param token_guard: Censor discord bot tokens
     :param path_guard: Censor full project directory
+    :param mass_ping_guard: Prevent mass pings (@everyone and @here)
     :return: Discord Message object
     """
     if token_guard:
@@ -75,6 +77,9 @@ async def send_message(
 
     if path_guard:
         text = text.replace(PARENT_DIRECTORY, "../")
+
+    if mass_ping_guard:
+        text = text.replace("@everyone", "everyone").replace("@here", "here")
 
     try:
         message = await channel.send(text, embed=embed)

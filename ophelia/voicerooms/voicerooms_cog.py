@@ -24,9 +24,11 @@ from loguru import logger
 
 from ophelia import settings
 from ophelia.output import (
-    disp_str, response_config, send_message_embed, send_simple_embed
+    disp_str, response_config, send_message, send_message_embed,
+    send_simple_embed
 )
 from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.settings import voiceroom_max_mute_time
 from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS
 )
@@ -35,7 +37,10 @@ from ophelia.voicerooms.rooms.generator import (
     RoomCreationError
 )
 from ophelia.voicerooms.message_buffer import MessageBuffer
-from ophelia.voicerooms.rooms.roompair import RoomPair, RoomRateLimited
+from ophelia.voicerooms.rooms.roompair import (
+    RoomMode, RoomPair,
+    RoomRateLimited
+)
 from ophelia.voicerooms.config_options import VOICEROOMS_GENERATOR_CONFIG
 from ophelia.voicerooms.name_filter import NameFilterManager
 
@@ -266,11 +271,58 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             try:
                 room: RoomPair = self.rooms[owner_id]
                 text_channel = room.text_channel
+                voice_channel = room.voice_channel
 
                 # Grant read and write permissions:
                 overwrite = text_channel.overwrites_for(member)
                 overwrite.update(send_messages=True, read_messages=True)
                 await text_channel.set_permissions(member, overwrite=overwrite)
+
+                # If on joinmute, mute user and set a timer for unmuting:
+                # This won't apply to the owner due to the filter
+                # a few lines back (intentional)
+                if room.current_mode == RoomMode.JOINMUTE:
+
+                    voice_overwrite = voice_channel.overwrites_for(member)
+                    voice_overwrite.update(speak=False)
+                    await voice_channel.set_permissions(
+                        member,
+                        overwrite=voice_overwrite
+                    )
+
+                    # Welcome user
+                    if room.is_tempmute():
+                        await send_message(
+                            channel=text_channel,
+                            text=disp_str("voicerooms_joinmute_welcome").format(
+                                mention=member.mention,
+                                name=voice_channel.name,
+                                time=room.joinmute_seconds
+                            ),
+                            mass_ping_guard=True
+                        )
+
+                        # Schedule unmute
+                        await room.schedule_unmute(member)
+
+                    else:
+                        message = await send_message(
+                            channel=text_channel,
+                            text=disp_str("voicerooms_permmute_welcome").format(
+                                mention=member.mention,
+                                name=voice_channel.name
+                            ),
+                            mass_ping_guard=True
+                        )
+
+                        # Prepare unmute reaction
+                        asyncio.create_task(room.react_unmute(
+                            bot=self.bot,
+                            message=message,
+                            owner_id=owner_id,
+                            member=member
+                        ))
+
             except KeyError:
                 # Invalid zombie room; delete VC.
                 await channel.delete()
@@ -411,6 +463,47 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         everyone = context.guild.default_role
         await self.update_room_membership(room, everyone, None)
         await send_simple_embed(context, "voicerooms_public")
+        room.current_mode = RoomMode.PUBLIC
+
+    @voiceroom.command(name="joinmute")
+    @VoiceroomsDecorators.pass_voiceroom
+    async def set_joinmute(
+            self,
+            context: Context,
+            *,
+            mute_time: Optional[int],
+            **kwargs
+    ) -> None:
+        """
+        Set the current voice room to joinmute mode.
+
+        This will temporarily mute every new member who joins the room
+        for a configured amount of time
+
+        :param context: Command context
+        :param mute_time: Amount of time new joins are muted for
+        """
+        room: RoomPair = kwargs["room"]
+
+        # Check if mute_time is valid
+        if mute_time is None:
+            room.joinmute_seconds = 0
+            await send_simple_embed(context, "voicerooms_permmute")
+        elif 0 < mute_time <= voiceroom_max_mute_time:
+            room.joinmute_seconds = mute_time
+            await send_simple_embed(context, "voicerooms_joinmute", mute_time)
+        else:
+            raise OpheliaCommandError(
+                "voicerooms_mute_too_long",
+                voiceroom_max_mute_time
+            )
+
+        # Underlying permissions are the same as public rooms
+        everyone = context.guild.default_role
+        await self.update_room_membership(room, everyone, None)
+
+        # Update room mode
+        room.current_mode = RoomMode.JOINMUTE
 
     @voiceroom.command(name="private")
     @VoiceroomsDecorators.pass_voiceroom
@@ -424,6 +517,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         everyone = context.guild.default_role
         await self.update_room_membership(room, everyone, False)
         await send_simple_embed(context, "voicerooms_private")
+        room.current_mode = RoomMode.PRIVATE
 
         for member in room.voice_channel.members:
             await self.update_room_membership(room, member, True)
@@ -476,6 +570,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
         if isinstance(removed, Role) and "mod" in removed.name.lower():
             raise OpheliaCommandError("voicerooms_remove_mod")
+
+        if context.author == removed:
+            raise OpheliaCommandError("voicerooms_remove_self")
 
         await self.update_room_membership(room, removed, None)
         await send_simple_embed(context, "voicerooms_remove", removed.mention)
