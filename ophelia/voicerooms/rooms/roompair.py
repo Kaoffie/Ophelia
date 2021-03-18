@@ -1,6 +1,5 @@
 """Room pair module."""
 import asyncio
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Callable, Optional, Set
@@ -238,6 +237,12 @@ class RoomPair:
             await member.edit(mute=False)
 
     async def unmute_all(self) -> None:
+        """
+        Unmutes all members in room.
+
+        Used when switching from joinmute mode to public or private
+        mode.
+        """
         for member in self.voice_channel.members:
             if member.id not in self.muted:
                 await member.edit(mute=False)

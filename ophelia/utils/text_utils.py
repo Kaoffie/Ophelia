@@ -6,7 +6,7 @@ from typing import Any, Callable, List, Optional, Union
 
 import discord
 import emoji
-from discord import Emoji, Message
+from discord import Emoji
 from discord.ext.commands import Bot
 
 from ophelia.utils.time_utils import utc_time_now

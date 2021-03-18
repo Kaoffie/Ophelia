@@ -390,7 +390,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 to_room: Optional[RoomPair] = None
                 if to_channel is not None and to_channel.id in self.vc_room_map:
                     to_owner_id = self.vc_room_map[to_channel.id]
-                    to_room = self.rooms[owner_id]
+                    to_room = self.rooms[to_owner_id]
 
                 await room.handle_leave(member, to_room)
 
@@ -883,8 +883,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
         try:
             await room.transfer(old_owner, new_owner)
-        except RoomRateLimited:
-            raise OpheliaCommandError("voicerooms_ratelimited")
+        except RoomRateLimited as e:
+            raise OpheliaCommandError("voicerooms_ratelimited") from e
 
         old_id = old_owner.id
         new_id = new_owner.id

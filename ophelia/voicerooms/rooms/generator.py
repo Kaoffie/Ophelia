@@ -139,10 +139,10 @@ class Generator:
                     member.mention
                 )
             )
-        except HTTPException:
+        except HTTPException as e:
             # User is not connected to voice.
             await room.destroy()
-            raise RoomCreationError
+            raise RoomCreationError from e
 
         return room
 
