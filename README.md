@@ -35,12 +35,15 @@ Custom VC + Text channel pairs created by users. This isn't a new concept, but a
 
 #### Commands
 
+- `&vc list` List all rooms or request for private room access
 - `&vc public` Set room to public mode
-- `&vc joinmute` Set room to joinmute mode (New users will be temporarily muted)
+- `&vc joinmute <seconds>` Set room to joinmute mode (New users will be temporarily muted)
 - `&vc private` Set room to private mode
 - `&vc end` End call and delete room
 - `&vc add` Add member or role to room (e.g. `&vc add John`)
 - `&vc remove` Remove member or role from room (e.g. `&vc remove Moderator`)
+- `&vc mute` Mute member
+- `&vc unmute` Unmute member 
 - `&vc name` Rename room
 - `&vc size` Set room size
 - `&vc bitrate` Set room bitrate

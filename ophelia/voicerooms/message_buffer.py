@@ -113,7 +113,7 @@ class MessageBuffer:
 
             self.message_buffer.setdefault(log_channel, []).append(
                 disp_str("voicerooms_raw_header").format(
-                    time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                     channel=text_channel.name,
                     text=text
                 )

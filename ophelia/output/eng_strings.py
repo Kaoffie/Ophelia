@@ -259,10 +259,30 @@ Voicerooms
 voicerooms_room_format = "{}'s Room"
 voicerooms_topic_format = "Owner: {}"
 voicerooms_commands_title = "Voice Room Commands"
-voicerooms_commands_desc = "`%PREFIX%vc public` Make room public\n`%PREFIX%vc private` Make room private\n`%PREFIX%vc end` End call and delete room\n\n`%PREFIX%vc add` Add member or role to room (e.g. `%PREFIX%vc add John`)\n`%PREFIX%vc remove` Remove member or role from room (e.g. `%PREFIX%vc remove Moderator`)\n\n`%PREFIX%vc name` Rename room\n`%PREFIX%vc size` Set room size\n`%PREFIX%vc bitrate` Set room bitrate\n`%PREFIX%vc transfer` Transfer room ownership"
-voicerooms_welcome_message = "{}\n**Voice Room Commands**\n\n> `%PREFIX%vc public` Make room public\n> `%PREFIX%vc private` Make room private\n> `%PREFIX%vc end` End call and delete room\n> \n> `%PREFIX%vc add` Add member or role to room (e.g. `%PREFIX%vc add John`)\n> `%PREFIX%vc remove` Remove member or role from room (e.g. `%PREFIX%vc remove Moderator`)\n> \n> `%PREFIX%vc name` Rename room\n> `%PREFIX%vc size` Set room size\n> `%PREFIX%vc bitrate` Set room bitrate\n> `%PREFIX%vc transfer` Transfer room ownership"
 voicerooms_timeout_title = "Timed out!"
 voicerooms_timeout_desc = "You took too long to give a response."
+
+voicerooms_help = """`%PREFIX%vc list` List of rooms
+`%PREFIX%vc knock` Request for private room access
+
+`%PREFIX%vc public` Public mode
+`%PREFIX%vc private` Private (whitelist) mode
+`%PREFIX%vc joinmute 30` Members will be muted for 30s upon joining
+`%PREFIX%vc joinmute` Members will be muted indefinitely upon joining
+`%PREFIX%vc end` End call and delete room
+
+`%PREFIX%vc add` Add member to room (e.g. `%PREFIX%vc add John`)
+`%PREFIX%vc kick` Remove member from room
+`%PREFIX%vc mute` Mute member
+`%PREFIX%vc unmute` Unmute member
+
+`%PREFIX%vc name` Rename room
+`%PREFIX%vc size` Set room size
+`%PREFIX%vc bitrate` Set room bitrate
+`%PREFIX%vc transfer` Transfer room ownership"""
+
+voicerooms_commands_desc = voicerooms_help
+voicerooms_welcome_message = "{}\n**Voice Room Commands**\n\n> " + voicerooms_help.replace("\n", "\n> ")
 
 voicerooms_generator_title = "Create Room Generator"
 voicerooms_generator_desc = "Before configuring the generator, ensure that there is a **Sample Text Channel** and **Sample Voice Channel** that I can copy the default permissions from. In the sample channels, any permissions you assign to **yourself** will be assigned to the owner of any custom channels."
@@ -380,6 +400,17 @@ voicerooms_filter_added_desc = "New room name regex filter: `{}`"
 voicerooms_filter_deleted_title = "Removed regex filter"
 voicerooms_filter_deleted_desc = "Removed room name regex filter: `{}`"
 
+voicerooms_list_rooms_title = "Voice Rooms List"
+voicerooms_list_rooms_desc = "{}"
+voicerooms_public_list = "**Public Channels**\n{pub}\n"
+voicerooms_public_room = "> **{name}** - <@{owner_id}>"
+voicerooms_private_list = "**Private Channels**\nEnter a room number to request access.\n{priv}"
+voicerooms_private_room = "> **{num}**: **{name}** - <@{owner_id}>"
+voicerooms_knock_confirm_title = ""
+voicerooms_knock_confirm_desc = "Knocking on <@{0}>'s door..."
+voicerooms_knock = "<@{owner_id}>, {mention} would like to join your room! Use the `%PREFIX%vc add` command to add them to the room."
+voicerooms_list_no_rooms_title = "Voice Rooms List"
+voicerooms_list_no_rooms_desc = "No rooms available."
 
 """'''''''
 Boostroles

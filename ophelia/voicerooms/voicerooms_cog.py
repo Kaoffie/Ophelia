@@ -9,7 +9,7 @@ import copy
 import functools
 import os
 import re
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 from discord import (
@@ -24,7 +24,7 @@ from loguru import logger
 
 from ophelia import settings
 from ophelia.output import (
-    disp_str, response_config, send_message, send_message_embed,
+    disp_str, get_input, response_config, send_message, send_message_embed,
     send_simple_embed
 )
 from ophelia.output.error_handler import OpheliaCommandError
@@ -247,7 +247,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             await self.on_voice_join(member, after.channel)
 
         if before.channel is not None:
-            await self.on_voice_leave(member, before.channel)
+            await self.on_voice_leave(member, before.channel, after.channel)
 
     async def on_voice_join(
             self,
@@ -279,18 +279,13 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 overwrite.update(send_messages=True, read_messages=True)
                 await text_channel.set_permissions(member, overwrite=overwrite)
 
+                # Let room object do its thing
+                await room.handle_join(member)
+
                 # If on joinmute, mute user and set a timer for unmuting:
                 # This won't apply to the owner due to the filter
                 # a few lines back (intentional)
                 if room.current_mode == RoomMode.JOINMUTE:
-
-                    voice_overwrite = voice_channel.overwrites_for(member)
-                    voice_overwrite.update(speak=False)
-                    await voice_channel.set_permissions(
-                        member,
-                        overwrite=voice_overwrite
-                    )
-
                     # Welcome user
                     if room.is_tempmute():
                         await send_message(
@@ -371,13 +366,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
     async def on_voice_leave(
             self,
             member: Member,
-            channel: VoiceChannel
+            channel: VoiceChannel,
+            to_channel: Optional[VoiceChannel]
     ) -> None:
         """
         Handles members leaving voice channels.
 
         :param member: Guild member
         :param channel: Voice channel left
+        :param to_channel: Voice channel that the member moved to
         """
         channel_id = channel.id
 
@@ -388,6 +385,14 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 room: RoomPair = self.rooms[owner_id]
                 text_channel = room.text_channel
                 voice_channel = room.voice_channel
+
+                # Let room object do its thing
+                to_room: Optional[RoomPair] = None
+                if to_channel is not None and to_channel.id in self.vc_room_map:
+                    to_owner_id = self.vc_room_map[to_channel.id]
+                    to_room = self.rooms[owner_id]
+
+                await room.handle_leave(member, to_room)
 
                 # Before we remove permissions, we check that the user is
                 # not an owner.
@@ -490,7 +495,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 id=context.author.id
             )
         )
+
         room.current_mode = RoomMode.PUBLIC
+        await room.unmute_all()
 
     @voiceroom.command(name="joinmute")
     @VoiceroomsDecorators.pass_voiceroom
@@ -564,6 +571,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         )
         await send_simple_embed(context, "voicerooms_private")
         room.current_mode = RoomMode.PRIVATE
+        await room.unmute_all()
 
         for member in room.voice_channel.members:
             await self.update_room_membership(room, member, True)
@@ -699,13 +707,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 target_id=member.id
             )
         )
-        overwrite = room.voice_channel.overwrites_for(member)
-        overwrite.update(speak=False)
-        await room.voice_channel.set_permissions(
-            member,
-            overwrite=overwrite
-        )
 
+        await room.mute_user(member)
         await send_simple_embed(context, "voicerooms_mute", member.mention)
 
     @voiceroom.command(name="unmute", aliases=["unsilence"])
@@ -742,13 +745,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 target_id=member.id
             )
         )
-        overwrite = room.voice_channel.overwrites_for(member)
-        overwrite.update(speak=None)
-        await room.voice_channel.set_permissions(
-            member,
-            overwrite=overwrite
-        )
 
+        await room.unmute_user(member)
         await send_simple_embed(context, "voicerooms_unmute", member.mention)
 
     @voiceroom.command(name="name", aliases=["rename"])
@@ -940,6 +938,97 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             new_owner.mention
         )
 
+    @voiceroom.command(name="list", aliases=["rooms", "knock"])
+    async def list_rooms(self, context: Context) -> None:
+        """
+        Command to list all voicerooms and to allow users to knock on
+        them to request for access.
+
+        :param context: Command context
+        """
+        non_private_rooms: List[Tuple[int, RoomPair]] = []
+        private_rooms: List[Tuple[int, RoomPair]] = []
+
+        for owner_id, room in self.rooms.items():
+            if room.voice_channel.guild.id == context.guild.id:
+                if room.current_mode == RoomMode.PRIVATE:
+                    private_rooms.append((owner_id, room))
+                else:
+                    non_private_rooms.append((owner_id, room))
+
+        if not non_private_rooms and not private_rooms:
+            await send_simple_embed(context, "voicerooms_list_no_rooms")
+            return
+
+        rooms_desc: str = ""
+
+        pub_rooms_descs: List[str] = []
+        if non_private_rooms:
+            for (owner_id, room) in non_private_rooms:
+                pub_rooms_descs.append(
+                    disp_str("voicerooms_public_room").format(
+                        name=room.voice_channel.name,
+                        owner_id=owner_id
+                    )
+                )
+
+            rooms_desc += disp_str("voicerooms_public_list").format(
+                pub="\n".join(pub_rooms_descs)
+            )
+
+        priv_rooms_descs: List[str] = []
+        if private_rooms:
+            owner_id: int
+            room: RoomPair
+            for num, (owner_id, room) in enumerate(private_rooms):
+                priv_rooms_descs.append(
+                    disp_str("voicerooms_private_room").format(
+                        num=num + 1,    # So that it starts from 1
+                        name=room.voice_channel.name,
+                        owner_id=owner_id
+                    )
+                )
+
+            rooms_desc += disp_str("voicerooms_private_list").format(
+                priv="\n".join(priv_rooms_descs)
+            )
+
+        await send_simple_embed(context, "voicerooms_list_rooms", rooms_desc)
+
+        # Wait for knocking
+        if private_rooms:
+            try:
+                message = await get_input(
+                    self.bot,
+                    context,
+                    settings.short_timeout,
+                    check=lambda txt: (
+                            txt.isnumeric()
+                            and 0 < int(txt) <= len(private_rooms)
+                    )
+                )
+
+                owner_id, room = private_rooms[int(message.content) - 1]
+
+                # Knock confirm
+                await send_simple_embed(
+                    context,
+                    "voicerooms_knock_confirm",
+                    owner_id
+                )
+
+                # Sending the knocking message
+                await send_message(
+                    channel=room.text_channel,
+                    text=disp_str("voicerooms_knock").format(
+                        owner_id=owner_id,
+                        mention=context.author.mention
+                    )
+                )
+
+            except asyncio.exceptions.TimeoutError:
+                return
+
     @voiceroom.command(name="forcetransfer", aliases=["ftransfer"])
     @commands.has_guild_permissions(administrator=True)
     async def force_transfer(
@@ -1038,7 +1127,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             generator_channel.name
         )
 
-    @voiceroom.command(name="list", aliases=["l"])
+    @voiceroom.command(name="listgen", aliases=["listgenerators", "lg"])
     @commands.has_guild_permissions(administrator=True)
     async def generator_list(self, context: Context) -> None:
         """

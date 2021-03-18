@@ -124,7 +124,13 @@ class Generator:
             overwrites=voice_overwrites
         )
 
-        room = RoomPair(text_channel, voice_channel, self.log_channel)
+        room = RoomPair(
+            text_channel,
+            voice_channel,
+            self.log_channel,
+            member.id
+        )
+
         try:
             await member.move_to(voice_channel)
             await send_message(

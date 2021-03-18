@@ -3,9 +3,9 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable
+from typing import Callable, Optional, Set
 
-from discord import Member, Message, TextChannel, VoiceChannel
+from discord import Member, Message, TextChannel, VoiceChannel, VoiceState
 
 from ophelia.output import disp_str, send_simple_embed
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
@@ -30,21 +30,54 @@ class RoomMode(Enum):
     PRIVATE = 2
 
 
-@dataclass
 class RoomPair:
     """Voice chat and text channel pair."""
-    text_channel: TextChannel
-    voice_channel: VoiceChannel
-    log_channel: TextChannel
 
-    # Hardcoded to Discord's channel name change limit
-    ratelimit_counter = 0
-    ratelimit_lock = asyncio.Lock()
-    ratelimit_timer = datetime.utcfromtimestamp(0)
+    __slots__ = [
+        "text_channel",
+        "voice_channel",
+        "log_channel",
+        "owner_id",
+        "ratelimit_counter",
+        "ratelimit_lock",
+        "ratelimit_timer",
+        "current_mode",
+        "joinmute_seconds",
+        "muted"
+    ]
 
-    # Modes
-    current_mode: RoomMode = RoomMode.PUBLIC
-    joinmute_seconds: int = 0
+    def __init__(
+            self,
+            text_channel: TextChannel,
+            voice_channel: VoiceChannel,
+            log_channel: TextChannel,
+            owner_id: int
+    ) -> None:
+        """
+        Initializer for the RoomPair class.
+
+        :param text_channel: Room text channel
+        :param voice_channel: Room voice channel
+        :param log_channel: Log channel to forward text messages to
+        :param owner_id: Room owner ID
+        """
+
+        self.text_channel = text_channel
+        self.voice_channel = voice_channel
+        self.log_channel = log_channel
+        self.owner_id = owner_id
+
+        # Hardcoded to Discord's channel name change limit
+        self.ratelimit_counter = 0
+        self.ratelimit_lock = asyncio.Lock()
+        self.ratelimit_timer = datetime.utcfromtimestamp(0)
+
+        # Modes
+        self.current_mode: RoomMode = RoomMode.PUBLIC
+        self.joinmute_seconds: int = 0
+
+        # Mutes
+        self.muted: Set[int] = set()
 
     def is_tempmute(self) -> bool:
         """
@@ -114,6 +147,11 @@ class RoomPair:
 
         # Give new owner the necessary permissions
         await self.text_channel.set_permissions(owner, overwrite=owner_text)
+        if owner in self.voice_channel.members:
+            await owner.edit(mute=False)
+
+        # Update internal
+        self.owner_id = owner.id
 
         # Old owner either gets stripped of all perms or gets the new
         # owner's old perms if they're still in the voice channel
@@ -140,11 +178,11 @@ class RoomPair:
 
         await self.do_rate_limit(change_name)
 
-    async def do_rate_limit(self, callable: Callable) -> None:
+    async def do_rate_limit(self, call_func: Callable) -> None:
         """
         Do something if the internal ratelimit lets it happen.
 
-        :param callable: The async thing to do
+        :param call_func: The async thing to do
         :raise RoomRateLimited: When we're rate limited
         """
         async with self.ratelimit_lock:
@@ -161,9 +199,90 @@ class RoomPair:
                 self.ratelimit_counter += 1
 
         try:
-            await asyncio.wait_for(callable(), 5)
+            await asyncio.wait_for(call_func(), 5)
         except asyncio.TimeoutError as e:
             raise RoomRateLimited from e
+
+    def should_mute(self, member: Member) -> bool:
+        """
+        Checks if the user should be muted upon joining the room.
+
+        :param member: Member to check
+        :return: Whether the member should be muted when joining
+        """
+        return member.id in self.muted or (
+                member.id != self.owner_id
+                and self.current_mode == RoomMode.JOINMUTE
+        )
+
+    async def mute_user(self, member: Member) -> None:
+        """
+        Mute a member.
+
+        :param member: Member in channel
+        """
+        self.muted.add(member.id)
+
+        if member in self.voice_channel.members:
+            await member.edit(mute=True)
+
+    async def unmute_user(self, member: Member) -> None:
+        """
+        Unmute a member.
+
+        :param member: Member in channel
+        """
+        self.muted.remove(member.id)
+
+        if member in self.voice_channel.members:
+            await member.edit(mute=False)
+
+    async def unmute_all(self) -> None:
+        for member in self.voice_channel.members:
+            if member.id not in self.muted:
+                await member.edit(mute=False)
+
+    async def handle_join(self, member: Member) -> None:
+        """
+        Handle member joins; currently used for managing mutes.
+
+        :param member: Member who just joined the channel
+        """
+        if (
+                self.current_mode == RoomMode.JOINMUTE
+                and member.id != self.owner_id
+        ):
+            await member.edit(mute=True)
+            return
+
+        if member.id in self.muted:
+            await member.edit(mute=True)
+
+    async def handle_leave(
+            self,
+            member: Member,
+            to_room: Optional["RoomPair"]
+    ) -> None:
+        """
+        Handle member exits; currently used for managing mutes.
+
+        :param member: Member who just left the channel
+        :param to_room: Room that the member is moving to
+        """
+        if (
+                self.current_mode == RoomMode.JOINMUTE
+                and member.id != self.owner_id
+        ):
+            if to_room is not None and to_room.should_mute(member):
+                return
+
+            await member.edit(mute=False)
+            return
+
+        if member.id in self.muted:
+            voice_state: VoiceState = member.voice
+            if voice_state is not None and voice_state.channel is not None:
+                await member.edit(mute=False)
 
     async def schedule_unmute(self, member: Member) -> None:
         """
@@ -189,12 +308,7 @@ class RoomPair:
             if unmute_member not in voice_channel.members:
                 return
 
-            overwrite = voice_channel.overwrites_for(unmute_member)
-            overwrite.update(speak=None)
-            await voice_channel.set_permissions(
-                unmute_member,
-                overwrite=overwrite
-            )
+            await unmute_member.edit(mute=False)
 
         asyncio.create_task(unmute_task(
             self.voice_channel,
@@ -226,24 +340,22 @@ class RoomPair:
                 "reaction_add",
                 timeout=settings.voiceroom_mute_button_timeout,
                 check=(
-                    lambda r, m: str(r.emoji) == VOICE_UNMUTE_EMOTE and
-                                 m.id == owner_id
+                    lambda r, m: (
+                            str(r.emoji) == VOICE_UNMUTE_EMOTE and
+                            r.message.id == message.id and
+                            m.id == owner_id
+                    )
                 )
             )
 
             # Unmute
-            overwrite = self.voice_channel.overwrites_for(member)
-            overwrite.update(speak=None)
-            await self.voice_channel.set_permissions(
-                member,
-                overwrite=overwrite
-            )
-
-            await send_simple_embed(
-                self.text_channel,
-                "voicerooms_unmute_confirm",
-                member.mention
-            )
+            if member in self.voice_channel.members:
+                await member.edit(mute=False)
+                await send_simple_embed(
+                    self.text_channel,
+                    "voicerooms_unmute_confirm",
+                    member.mention
+                )
 
         except asyncio.exceptions.TimeoutError:
             try:
