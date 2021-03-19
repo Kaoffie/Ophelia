@@ -6,9 +6,13 @@ constants for time conversion.
 """
 import json
 from datetime import datetime
-from typing import Optional
+from io import BufferedReader, BytesIO
+from typing import List, Optional
 
-from discord import NoMoreItems, TextChannel, Guild, Colour, Embed, Message
+from discord import (
+    Attachment, File, NoMoreItems, TextChannel, Guild, Colour, Embed,
+    Message
+)
 from loguru import logger
 
 from ophelia import settings
@@ -281,6 +285,14 @@ class RecurringEvent(BaseEvent):
         text = None
         embed = None
 
+        # Forward attachments as well
+        message_attachments: List[Attachment] = self.next_content.attachments
+        files: List[File] = []
+        for attachment in message_attachments:
+            file_bytes = BytesIO()
+            await attachment.save(file_bytes)
+            files.append(File(file_bytes, filename=attachment.filename))
+
         if self.post_template:
             text = (
                 self.post_template
@@ -295,7 +307,7 @@ class RecurringEvent(BaseEvent):
             )
             embed = Embed.from_dict(json.loads(embed_json))
 
-        if text is None and embed is None:
+        if text is None and embed is None and not files:
             logger.warning(
                 "Recurring event {} scheduled an empty message",
                 self.title
@@ -307,4 +319,4 @@ class RecurringEvent(BaseEvent):
         self.next_content = None
 
         # Post new message
-        await self.target_channel.send(content=text, embed=embed)
+        await self.target_channel.send(content=text, embed=embed, files=files)
