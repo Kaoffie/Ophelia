@@ -6,12 +6,11 @@ constants for time conversion.
 """
 import json
 from datetime import datetime
-from io import BufferedReader, BytesIO
+from io import BytesIO
 from typing import List, Optional
 
 from discord import (
-    Attachment, File, NoMoreItems, TextChannel, Guild, Colour, Embed,
-    Message
+    Attachment, Colour, Embed, File, Guild, Message, NoMoreItems, TextChannel
 )
 from loguru import logger
 

@@ -2,6 +2,7 @@
 import functools
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+import yaml
 from discord import (
     Colour, Guild, Member, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
     RawReactionActionEvent, Role
@@ -10,7 +11,8 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from loguru import logger
 
-from ophelia import database, settings
+# from ophelia import database, settings
+from ophelia import settings
 from ophelia.events.calendar.base_event import BaseEvent, EventLoadError
 from ophelia.events.calendar.guild_event_log import (
     GuildEventInvalidConfig, GuildEventLog
@@ -36,7 +38,7 @@ from ophelia.utils.discord_utils import (
     filter_self_react
 )
 
-DB_COG_KEY = "events"
+# DB_COG_KEY = "events"
 
 CONFIG_TIMEOUT_SECONDS = settings.long_timeout
 CONFIG_MAX_TRIES = settings.max_tries
@@ -55,7 +57,7 @@ class EventsCog(commands.Cog, name="events"):
     server.
     """
 
-    __slots__ = ["guild_event_logs", "bot"]
+    __slots__ = ["guild_event_logs", "bot", "events_db"]
 
     # Using forward references to avoid cyclic imports
     # noinspection PyUnresolvedReferences
@@ -66,15 +68,16 @@ class EventsCog(commands.Cog, name="events"):
         :param bot: Ophelia bot object
         """
         self.bot = bot
-        self.guild_event_logs = {}
+        self.guild_event_logs: Dict[str, Any] = {}
+        self.events_db: dict = {}
 
         self.save_database.start()  # pylint: disable=no-member
         self.check_update.start()  # pylint: disable=no-member
 
     async def cog_save_all(self) -> None:
         """Save all events and server config options to database."""
-        for guild_id in self.guild_event_logs:
-            await self.save_guild_to_database(guild_id)
+        for guild_id_str in self.guild_event_logs:
+            await self.save_guild_to_database(guild_id_str)
 
     @staticmethod
     async def list_events(
@@ -130,7 +133,10 @@ class EventsCog(commands.Cog, name="events"):
                 :param args: Arguments
                 :param kwargs: Keyword arguments
                 """
-                if context.guild.id not in self.guild_event_logs:
+                print("Checking event logs for guild ID:", context.guild.id)
+                print("What's in the logs:", self.guild_event_logs.keys())
+
+                if str(context.guild.id) not in self.guild_event_logs:
                     raise OpheliaCommandError("events_no_guild")
 
                 return await func(self, context, *args, **kwargs)
@@ -161,7 +167,7 @@ class EventsCog(commands.Cog, name="events"):
                 :param context: Command context
                 """
                 event_log: GuildEventLog = self.guild_event_logs[
-                    context.guild.id
+                    str(context.guild.id)
                 ]
                 event_dict = await event_log.retrieve_user_events(
                     context.author.id
@@ -211,7 +217,10 @@ class EventsCog(commands.Cog, name="events"):
                 :param kwargs: Keyword arguments
                 """
                 guild_id = payload.guild_id
-                if guild_id is None or guild_id not in self.guild_event_logs:
+                if (
+                        guild_id is None
+                        or str(guild_id) not in self.guild_event_logs
+                ):
                     return
 
                 return await func(self, payload, *args, **kwargs)
@@ -247,13 +256,15 @@ class EventsCog(commands.Cog, name="events"):
                 :param kwargs: Keyword arguments
                 """
                 guild_id = context.guild.id
-                if guild_id not in self.guild_event_logs:
+                if str(guild_id) not in self.guild_event_logs:
                     return
 
                 # We can assume that the author is a member since the
                 # command group is guild only.
                 author: Member = context.author
-                guild_event_log: GuildEventLog = self.guild_event_logs[guild_id]
+                guild_event_log: GuildEventLog = self.guild_event_logs[
+                    str(guild_id)
+                ]
                 staff_role: Role = guild_event_log.staff_role
 
                 if staff_role not in author.roles:
@@ -265,34 +276,43 @@ class EventsCog(commands.Cog, name="events"):
 
     async def load_from_database(self) -> None:
         """Load all events and server config options from database."""
-        for guild_id, config_dict in database.db.setdefault(
-                DB_COG_KEY, {}
-        ).items():
-            guild = self.bot.get_guild(guild_id)
+        with open(settings.file_events_db, "r", encoding="utf-8") as file:
+            self.events_db = yaml.safe_load(file)
+
+        for guild_id_str, config_dict in self.events_db.items():
+            guild = self.bot.get_guild(int(guild_id_str))
             if guild is None:
                 logger.warning(
                     "Events failed to fetch guild config for guild {}",
-                    guild_id
+                    guild_id_str
                 )
                 continue
 
-            self.guild_event_logs[guild_id] = (
+            self.guild_event_logs[guild_id_str] = (
                 await GuildEventLog.parse_guild_config(guild, config_dict)
             )
 
-    async def save_guild_to_database(self, guild_id: int) -> None:
+    async def save_guild_to_database(self, guild_id_str: str) -> None:
         """
         Save the events log of a single guild to database.
 
-        :param guild_id: Discord Guild ID
+        :param guild_id_str: Discord Guild ID as a string
         :raises KeyError: Guild ID event log could not be found
         """
-        if guild_id not in self.guild_event_logs:
+        if guild_id_str not in self.guild_event_logs:
             raise KeyError
 
-        guild_event_log: GuildEventLog = self.guild_event_logs[guild_id]
+        guild_event_log: GuildEventLog = self.guild_event_logs[guild_id_str]
         guild_saved_config = await guild_event_log.save_config()
-        database.db[DB_COG_KEY, guild_id] = guild_saved_config
+        self.events_db[guild_id_str] = guild_saved_config
+
+        with open(settings.file_events_db, "w", encoding="utf-8") as file:
+            yaml.dump(
+                self.events_db,
+                file,
+                default_flow_style=False,
+                allow_unicode=True
+            )
 
     @tasks.loop(minutes=SAVE_INTERVAL_MINUTES)
     async def save_database(self) -> None:
@@ -326,7 +346,7 @@ class EventsCog(commands.Cog, name="events"):
         :param reaction_payload: Raw reaction payload
         """
         emote = reaction_payload.emoji.name
-        guild_event_log = self.guild_event_logs[reaction_payload.guild_id]
+        guild_event_log = self.guild_event_logs[str(reaction_payload.guild_id)]
         if emote == APPROVE_EMOTE:
             await self.approve(guild_event_log, reaction_payload.message_id)
         elif emote == REJECT_EMOTE:
@@ -362,7 +382,9 @@ class EventsCog(commands.Cog, name="events"):
         """
         emote = reaction_payload.emoji.name
         if emote == NOTIF_EMOTE:
-            guild_event_log = self.guild_event_logs[reaction_payload.guild_id]
+            guild_event_log = self.guild_event_logs[
+                str(reaction_payload.guild_id)
+            ]
             await self.subscribe_event(
                 guild_event_log,
                 reaction_payload.message_id,
@@ -479,8 +501,8 @@ class EventsCog(commands.Cog, name="events"):
         # Check if the server already has events
         guild_id = context.guild.id
         old_log: Optional[GuildEventLog] = None
-        if guild_id in self.guild_event_logs:
-            old_log = self.guild_event_logs[guild_id]
+        if str(guild_id) in self.guild_event_logs:
+            old_log = self.guild_event_logs[str(guild_id)]
             approval_events = old_log.approval_events
             upcoming_events = old_log.upcoming_events
             ongoing_events = old_log.ongoing_events
@@ -496,7 +518,7 @@ class EventsCog(commands.Cog, name="events"):
         # Initialize new event log with event and edit lists
         try:
             new_log = await GuildEventLog.new_guild_log(config_vars)
-            self.guild_event_logs[guild_id] = new_log
+            self.guild_event_logs[str(guild_id)] = new_log
 
             if old_log is not None:
                 await new_log.force_update_calendar(
@@ -596,7 +618,7 @@ class EventsCog(commands.Cog, name="events"):
             config_vars["type"] = type_str
             try:
                 guild = context.guild
-                guild_log: GuildEventLog = self.guild_event_logs[guild.id]
+                guild_log: GuildEventLog = self.guild_event_logs[str(guild.id)]
                 event = await guild_log.submit_event(config_vars, guild)
 
                 await self.command_event_add_success(context, event)
@@ -682,7 +704,7 @@ class EventsCog(commands.Cog, name="events"):
             """
             config_vars["event_message_id"] = event_id
             guild = context.guild
-            guild_log: GuildEventLog = self.guild_event_logs[guild.id]
+            guild_log: GuildEventLog = self.guild_event_logs[str(guild.id)]
             edit = await guild_log.submit_edit(config_vars)
 
             await send_message(
@@ -735,7 +757,7 @@ class EventsCog(commands.Cog, name="events"):
         :param event_id: Event ID to delete
         :return: Async callable that deletes event
         """
-        guild_log: GuildEventLog = self.guild_event_logs[context.guild.id]
+        guild_log: GuildEventLog = self.guild_event_logs[str(context.guild.id)]
         await guild_log.delete_upcoming_event(event_id)
         await send_simple_embed(
             context,
@@ -751,7 +773,7 @@ class EventsCog(commands.Cog, name="events"):
 
         :param context: Command context
         """
-        event_log: GuildEventLog = self.guild_event_logs[context.guild.id]
+        event_log: GuildEventLog = self.guild_event_logs[str(context.guild.id)]
         approval_list = "\n".join(
             f"> {k}: {v.title}" for k, v in event_log.approval_events.items()
         )
@@ -806,7 +828,7 @@ class EventsCog(commands.Cog, name="events"):
         :param guild_id: ID of Discord Guild
         :param event_id: Event ID
         """
-        event_log: GuildEventLog = self.guild_event_logs[guild_id]
+        event_log: GuildEventLog = self.guild_event_logs[str(guild_id)]
 
         await event_log.reject_event(event_id)
         await event_log.delete_upcoming_event(event_id)

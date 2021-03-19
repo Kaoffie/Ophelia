@@ -65,7 +65,7 @@ embed_color_unimportant = 0xbaccdb
 embed_color_important = 0x2d70ed
 
 # File paths
-file_path_db = "./resources/database/database.sqlite"
+file_events_db = "./resources/events/event_db.yml"
 file_reactrole_config = "./resources/reactrole/reactrole.yml"
 file_voicerooms_config = "./resources/voicerooms/voicerooms.yml"
 file_voicerooms_filter_config = "./resources/voicerooms/filters.yml"
