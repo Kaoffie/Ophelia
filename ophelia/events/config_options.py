@@ -94,6 +94,7 @@ for template in [
     "reject_edit_template",
     "dm_template",
     "organizer_dm_template",
+    "new_event_template",
     "ongoing_template"
 ]:
     SETUP_CONFIG_ITEMS.append(ConfigItem(

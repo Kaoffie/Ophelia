@@ -197,6 +197,7 @@ events_setup_accept_edit_template = f"Event edit acceptance DM sent to event org
 events_setup_reject_edit_template = f"Event edit rejection DM sent to event organizer. \n\n{events_vars}"
 events_setup_dm_template = f"Event DM notification template sent to everyone who subscribed to the event. \n\n{events_notif_vars}"
 events_setup_organizer_dm_template = f"DM notification sent to organizer before their event starts. \n\n{events_vars}"
+events_setup_new_event_template = f"Event announcement template, posted to the calendar channel when a new event is approved. \n\n{events_vars}"
 events_setup_ongoing_template = f"Ongoing event announcement template, posted to the calendar channel when an event is about to start. \n\n{events_vars}"
 events_setup_event_timeout = "How long it takes for an ongoing event to end (in **seconds**) if the organizer doesn't end the event themselves."
 events_setup_success_title = "Successfully set up events module!"

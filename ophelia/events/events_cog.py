@@ -11,7 +11,6 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from loguru import logger
 
-# from ophelia import database, settings
 from ophelia import settings
 from ophelia.events.calendar.base_event import BaseEvent, EventLoadError
 from ophelia.events.calendar.guild_event_log import (
@@ -37,8 +36,6 @@ from ophelia.utils.discord_utils import (
     FETCH_FAIL_EXCEPTIONS,
     filter_self_react
 )
-
-# DB_COG_KEY = "events"
 
 CONFIG_TIMEOUT_SECONDS = settings.long_timeout
 CONFIG_MAX_TRIES = settings.max_tries
@@ -133,9 +130,6 @@ class EventsCog(commands.Cog, name="events"):
                 :param args: Arguments
                 :param kwargs: Keyword arguments
                 """
-                print("Checking event logs for guild ID:", context.guild.id)
-                print("What's in the logs:", self.guild_event_logs.keys())
-
                 if str(context.guild.id) not in self.guild_event_logs:
                     raise OpheliaCommandError("events_no_guild")
 

@@ -78,6 +78,7 @@ class GuildEventLog:
         "reject_edit_template",
         "dm_template",
         "organizer_dm_template",
+        "new_event_template",
         "ongoing_template",
         "approval_events",
         "upcoming_events",
@@ -110,6 +111,7 @@ class GuildEventLog:
             self.organizer_dm_template = guild_config_dict[
                 "organizer_dm_template"
             ]
+            self.new_event_template = guild_config_dict["new_event_template"]
             self.ongoing_template = guild_config_dict["ongoing_template"]
 
             # Parse event timeout
@@ -400,6 +402,7 @@ class GuildEventLog:
             "reject_edit_template": self.reject_edit_template,
             "dm_template": self.dm_template,
             "organizer_dm_template": self.organizer_dm_template,
+            "new_event_template": self.new_event_template,
             "ongoing_template": self.ongoing_template,
             "approval_events": await self.save_events(self.approval_events),
             "upcoming_events": await self.save_events(self.upcoming_events),
@@ -421,7 +424,7 @@ class GuildEventLog:
         """
         message = await send_message(
             channel=self.calendar_channel,
-            text=None,
+            text=event.format_vars(self.new_event_template),
             embed=await event.get_calendar_embed()
         )
 
@@ -641,6 +644,7 @@ class GuildEventLog:
                     await self.calendar_channel.fetch_message(target_id)
                 )
                 await target_message.edit(
+                    content=target_event.format_vars(self.new_event_template),
                     embed=await target_event.get_calendar_embed()
                 )
 
@@ -1019,6 +1023,7 @@ class GuildEventLog:
                             message_id
                         )
                         await message.edit(
+                            content=message.content,
                             embed=await upcoming_event.get_calendar_embed()
                         )
                     except FETCH_FAIL_EXCEPTIONS:
