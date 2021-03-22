@@ -263,7 +263,7 @@ voicerooms_commands_title = "Voice Room Commands"
 voicerooms_timeout_title = "Timed out!"
 voicerooms_timeout_desc = "You took too long to give a response."
 
-voicerooms_help = """`%PREFIX%vc list` List of rooms
+voicerooms_help = """`%PREFIX%vc list` List all rooms
 `%PREFIX%vc knock` Request for private room access
 
 `%PREFIX%vc public` Public mode
@@ -301,7 +301,7 @@ voicerooms_log_header = "**{time}** in **#{channel}**\n**{name}:** ({id})"
 voicerooms_log_tail = "{}\n_ _"
 voicerooms_log_attachments = "**Attachments: ** {}"
 voicerooms_log_create_room = "**{name}** ({id}) **created new VC room**\n_ _"
-voicerooms_log_delete_room = "**Deleted** `{room}` **owned by {name}** ({id})"
+voicerooms_log_delete_room = "**Deleted** `{room}` **owned by {name}** ({id})\n_ _"
 voicerooms_log_public = "**Set** `{room}` **owned by {name}** ({id}) **to Public Mode.**\n_ _"
 voicerooms_log_private = "**Set** `{room}` **owned by {name}** ({id}) **to Private Mode.\n_ _**"
 voicerooms_log_joinmute = "**Set** `{room}` **owned by {name}** ({id}) **to Joinmute Mode.** (Mute time: {time}s)\n_ _"
@@ -377,7 +377,7 @@ voicerooms_permmute_desc = "All members will be muted upon entering this room un
 voicerooms_joinmute_welcome = "{mention} Welcome to {name}! You will be unmuted in {time} seconds."
 voicerooms_permmute_welcome = "{mention} Welcome to {name}! This room has been set to mute mode."
 voicerooms_unmute_confirm_title = ""
-voicerooms_unmute_confirm_desc = "{} has been unmuted. You may use the `%PREFIX mute` command to mute the user again."
+voicerooms_unmute_confirm_desc = "{} has been unmuted. You may use the `%PREFIX% mute` command to mute the user again."
 
 voicerooms_mute_self_title = "Invalid mute target!"
 voicerooms_mute_self_desc = "You can't mute yourself!"

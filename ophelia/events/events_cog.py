@@ -840,7 +840,7 @@ class EventsCog(commands.Cog, name="events"):
 
         :param context: Command context
         """
-        await self.save_guild_to_database(context.guild.id)
+        await self.save_guild_to_database(str(context.guild.id))
         await send_simple_embed(
             context,
             "events_save",

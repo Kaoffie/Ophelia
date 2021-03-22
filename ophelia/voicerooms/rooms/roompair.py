@@ -231,7 +231,7 @@ class RoomPair:
 
         :param member: Member in channel
         """
-        self.muted.remove(member.id)
+        self.muted.discard(member.id)
 
         if member in self.voice_channel.members:
             await member.edit(mute=False)
@@ -266,27 +266,42 @@ class RoomPair:
     async def handle_leave(
             self,
             member: Member,
-            to_room: Optional["RoomPair"]
+            to_room: Optional["RoomPair"],
+            future_unmute: Set[int]
     ) -> None:
         """
         Handle member exits; currently used for managing mutes.
 
         :param member: Member who just left the channel
         :param to_room: Room that the member is moving to
+        :param future_unmute: Set of user IDs who will be unmuted on
+            their next VC join
         """
+
+        # Schedule the member for future unmuting if they leave
+        # voice chat altogether
+        voice_state: VoiceState = member.voice
+        if voice_state is None or voice_state.channel is None:
+            future_unmute.add(member.id)
+
+        # If a member moves from a joinmute channel or a room where
+        # they're in the mute list to somewhere else
         if (
-                self.current_mode == RoomMode.JOINMUTE
+                (
+                        self.current_mode == RoomMode.JOINMUTE
+                        or member.id in self.muted
+                )
                 and member.id != self.owner_id
         ):
-            if to_room is not None and to_room.should_mute(member):
-                return
+            # When the member has moved to another VC room
+            if to_room is not None:
+                if to_room.should_mute(member):
+                    return
 
-            await member.edit(mute=False)
-            return
+                await member.edit(mute=False)
 
-        if member.id in self.muted:
-            voice_state: VoiceState = member.voice
-            if voice_state is not None and voice_state.channel is not None:
+            # If they moved to another non-VC room
+            elif voice_state is not None and voice_state.channel is not None:
                 await member.edit(mute=False)
 
     async def schedule_unmute(self, member: Member) -> None:

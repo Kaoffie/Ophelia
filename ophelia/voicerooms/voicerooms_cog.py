@@ -66,7 +66,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         "text_room_map",
         "message_buffer",
         "name_filter",
-        "generator_lock"
+        "generator_lock",
+        "future_unmute"
     ]
 
     # Using forward references to avoid cyclic imports
@@ -85,6 +86,14 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         self.message_buffer = MessageBuffer()
         self.name_filter = NameFilterManager.load_filters()
         self.generator_lock = asyncio.Lock()
+
+        # We have to keep track of users who will be unmuted on their
+        # next VC join because we are unable to unmute them if they
+        # leave a VC in a muted state. This is a limitation set by
+        # Discord and we can't really circumvent it because the other
+        # kind of muting (using permissions) doesn't allow instant
+        # muting.
+        self.future_unmute: Set[int] = set()
 
     # pylint: disable=too-few-public-methods
     class VoiceroomsDecorators:
@@ -261,6 +270,13 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param channel: Voice channel joined
         """
         channel_id = channel.id
+        if member.id in self.future_unmute:
+            self.future_unmute.discard(member.id)
+
+            # Unmute first, even if the user is gonna be muted again
+            # later by another VC room
+            await member.edit(mute=False)
+
         if channel_id in self.generators:
             await self.on_generator_join(member, self.generators[channel_id])
 
@@ -392,7 +408,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                     to_owner_id = self.vc_room_map[to_channel.id]
                     to_room = self.rooms[to_owner_id]
 
-                await room.handle_leave(member, to_room)
+                await room.handle_leave(member, to_room, self.future_unmute)
 
                 # Before we remove permissions, we check that the user is
                 # not an owner.
