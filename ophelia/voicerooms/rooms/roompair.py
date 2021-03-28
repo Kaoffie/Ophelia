@@ -7,7 +7,7 @@ from typing import Callable, Optional, Set
 from discord import Member, Message, TextChannel, VoiceChannel, VoiceState
 
 from ophelia.output import disp_str, send_simple_embed
-from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
+from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS, in_vc, vc_members
 
 from ophelia import settings
 
@@ -146,7 +146,7 @@ class RoomPair:
 
         # Give new owner the necessary permissions
         await self.text_channel.set_permissions(owner, overwrite=owner_text)
-        if owner in self.voice_channel.members:
+        if in_vc(owner, self.voice_channel):
             await owner.edit(mute=False)
 
         # Update internal
@@ -154,7 +154,7 @@ class RoomPair:
 
         # Old owner either gets stripped of all perms or gets the new
         # owner's old perms if they're still in the voice channel
-        if prev in self.voice_channel.members:
+        if in_vc(prev, self.voice_channel):
             await self.text_channel.set_permissions(prev, overwrite=member_text)
         else:
             await self.text_channel.set_permissions(prev, overwrite=None)
@@ -222,7 +222,7 @@ class RoomPair:
         """
         self.muted.add(member.id)
 
-        if member in self.voice_channel.members:
+        if in_vc(member, self.voice_channel):
             await member.edit(mute=True)
 
     async def unmute_user(self, member: Member) -> None:
@@ -233,7 +233,7 @@ class RoomPair:
         """
         self.muted.discard(member.id)
 
-        if member in self.voice_channel.members:
+        if in_vc(member, self.voice_channel):
             await member.edit(mute=False)
 
     async def unmute_all(self) -> None:
@@ -243,7 +243,7 @@ class RoomPair:
         Used when switching from joinmute mode to public or private
         mode.
         """
-        for member in self.voice_channel.members:
+        for member in vc_members(self.voice_channel):
             if member.id not in self.muted:
                 await member.edit(mute=False)
 
@@ -325,7 +325,7 @@ class RoomPair:
             :param unmute_member: Member to unmute
             """
             await asyncio.sleep(wait_seconds)
-            if unmute_member not in voice_channel.members:
+            if not in_vc(unmute_member, voice_channel):
                 return
 
             await unmute_member.edit(mute=False)
@@ -369,7 +369,7 @@ class RoomPair:
             )
 
             # Unmute
-            if member in self.voice_channel.members:
+            if in_vc(member, self.voice_channel):
                 await member.edit(mute=False)
                 await send_simple_embed(
                     self.text_channel,

@@ -5,7 +5,7 @@ A collection of useful functions that retrieve stuff from Discord.
 """
 import functools
 import re
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from discord import (
     CategoryChannel, Forbidden, Guild, HTTPException, InvalidArgument, Member,
@@ -298,3 +298,63 @@ async def dict_to_multioverwrite(
             continue
 
     return overwrites
+
+
+def in_vc(member: Member, channel: VoiceChannel) -> bool:
+    """
+    Check if a member is in VC without using channel.members.
+
+    :param member: Member to check
+    :param channel: Channel to check
+    :return: Whether member is connected to channel
+    """
+    voice_state = member.voice
+    if voice_state is not None:
+        member_channel = voice_state.channel
+        if channel is not None:
+            return member_channel.id == channel.id
+
+    return False
+
+
+def vc_is_empty(channel: VoiceChannel) -> bool:
+    """
+    Check if a VC is empty wihtout using channel.members.
+
+    This is an emergency patch for servers that have stage channels that
+    return as NoneTypes in voice states. We are thus forced to use a
+    protected member because there is no other alternative.
+
+    :param channel: Channel to check
+    :return: Whether channel is empty
+    """
+    # noinspection PyProtectedMember
+    for user_id, state in channel.guild._voice_states.items():
+        if state.channel is not None and state.channel.id == channel.id:
+            return False
+
+    return True
+
+
+def vc_members(channel: VoiceChannel) -> List[Member]:
+    """
+    Get a list of members connected to a VC.
+
+    This is an emergency patch for servers that have stage channels that
+    return as NoneTypes in voice states. This implementation is nearly
+    identical to the original implementation except for an extra check
+    if state.channel is not None.
+
+    :param channel: Voice channel
+    :return: Members connected to voice channel
+    """
+    members: List[Member] = []
+
+    # noinspection PyProtectedMember
+    for user_id, state, in channel.guild._voice_states.items():
+        if state.channel is not None and state.channel.id == channel.id:
+            member = channel.guild.get_member(user_id)
+            if member is not None:
+                members.append(member)
+
+    return members

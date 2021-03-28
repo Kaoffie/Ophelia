@@ -17,6 +17,7 @@ from loguru import logger
 from ophelia import settings
 from ophelia.events.calendar.base_event import BaseEvent, EventLoadError
 from ophelia.output import disp_str
+from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
 from ophelia.utils.text_utils import escape_json_formatting
 from ophelia.utils.time_utils import to_utc_datetime, utc_time_now
 
@@ -314,7 +315,11 @@ class RecurringEvent(BaseEvent):
             return
 
         # Delete old message
-        await self.next_content.delete()
+        try:
+            await self.next_content.delete()
+        except FETCH_FAIL_EXCEPTIONS:
+            pass
+
         self.next_content = None
 
         # Post new message

@@ -30,7 +30,7 @@ from ophelia.output import (
 from ophelia.output.error_handler import OpheliaCommandError
 from ophelia.settings import voiceroom_max_mute_time
 from ophelia.utils.discord_utils import (
-    ARGUMENT_FAIL_EXCEPTIONS
+    ARGUMENT_FAIL_EXCEPTIONS, in_vc, vc_is_empty, vc_members
 )
 from ophelia.utils.text_utils import escape_formatting
 from ophelia.voicerooms.rooms.generator import (
@@ -375,7 +375,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
             # Check if room is occupied, or if the user has left the
             # room during channel creation.
-            if not room.voice_channel.members:
+            if vc_is_empty(room.voice_channel):
                 await self.delete_room(member.id)
                 return
 
@@ -423,7 +423,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                     return
 
                 # Check if channel is empty:
-                if not voice_channel.members:
+                if vc_is_empty(voice_channel):
                     await self.message_buffer.log_system_msg(
                         log_channel=room.log_channel,
                         text_channel=room.text_channel,
@@ -589,7 +589,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         room.current_mode = RoomMode.PRIVATE
         await room.unmute_all()
 
-        for member in room.voice_channel.members:
+        for member in vc_members(room.voice_channel):
             await self.update_room_membership(room, member, True)
 
     @voiceroom.command(name="end")
@@ -682,10 +682,10 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         )
 
         if isinstance(removed, Member):
-            if removed in room.voice_channel.members:
+            if in_vc(removed, room.voice_channel):
                 await removed.move_to(None)
         else:
-            for member in room.voice_channel.members:
+            for member in vc_members(room.voice_channel):
                 if removed in member.roles:
                     await member.move_to(None)
 
@@ -709,7 +709,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         if context.author == member:
             raise OpheliaCommandError("voicerooms_mute_self")
 
-        if member not in room.voice_channel.members:
+        if not in_vc(member, room.voice_channel):
             raise OpheliaCommandError("voicerooms_mute_not_present")
 
         await self.message_buffer.log_system_msg(
@@ -747,7 +747,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         if context.author == member:
             raise OpheliaCommandError("voicerooms_unmute_self")
 
-        if member not in room.voice_channel.members:
+        if not in_vc(member, room.voice_channel):
             raise OpheliaCommandError("voicerooms_unmute_not_present")
 
         await self.message_buffer.log_system_msg(
@@ -944,7 +944,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         room: RoomPair = kwargs["room"]
 
         # Check if member is in the voice room
-        if new_owner not in room.voice_channel.members:
+        if not in_vc(new_owner, room.voice_channel):
             raise OpheliaCommandError("voicerooms_transfer_bad_owner")
 
         await self.transfer_room(room, context.author, new_owner)
