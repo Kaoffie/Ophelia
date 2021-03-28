@@ -33,6 +33,7 @@ from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS, in_vc, vc_is_empty, vc_members
 )
 from ophelia.utils.text_utils import escape_formatting
+from ophelia.voicerooms.mute_manager import MuteManager
 from ophelia.voicerooms.rooms.generator import (
     Generator, GeneratorLoadError,
     RoomCreationError
@@ -67,7 +68,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         "message_buffer",
         "name_filter",
         "generator_lock",
-        "future_unmute"
+        "mute_managers"
     ]
 
     # Using forward references to avoid cyclic imports
@@ -93,7 +94,16 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         # Discord and we can't really circumvent it because the other
         # kind of muting (using permissions) doesn't allow instant
         # muting.
-        self.future_unmute: Set[int] = set()
+        self.mute_managers: Dict[int, MuteManager] = {}
+
+    def get_mute(self, guild_id: int) -> MuteManager:
+        """
+        Get guild mute manager from guild ID.
+
+        :param guild_id: Guild ID
+        :return: Mute manager corresponding to guild ID
+        """
+        return self.mute_managers.setdefault(guild_id, MuteManager(guild_id))
 
     # pylint: disable=too-few-public-methods
     class VoiceroomsDecorators:
@@ -181,9 +191,15 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
 
             for channel_id_str, gen_dict in generators_dict.items():
                 try:
-                    self.generators[int(channel_id_str)] = (
-                        await Generator.from_dict(self.bot, gen_dict)
-                    )
+                    channel_id = int(channel_id_str)
+                    generator = await Generator.from_dict(self.bot, gen_dict)
+                    self.generators[channel_id] = generator
+
+                    # Create new guild mute manager
+                    guild_id: int = generator.generator_channel.guild.id
+                    if guild_id not in self.mute_managers:
+                        self.mute_managers[guild_id] = MuteManager(guild_id)
+
                 except GeneratorLoadError:
                     logger.warning(
                         "Failed to load generator with ID {}",
@@ -250,6 +266,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param after: New voice state
         """
         if before.channel == after.channel:
+            if before.mute and not after.mute:
+                await self.get_mute(member.guild.id).register_unmute(member)
+            elif not before.mute and after.mute:
+                await self.get_mute(member.guild.id).register_mute(member)
+
             return
 
         if after.channel is not None:
@@ -270,12 +291,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param channel: Voice channel joined
         """
         channel_id = channel.id
-        if member.id in self.future_unmute:
-            self.future_unmute.discard(member.id)
+        guild_id = channel.guild.id
 
-            # Unmute first, even if the user is gonna be muted again
-            # later by another VC room
-            await member.edit(mute=False)
+        # Unmute first, even if the user is gonna be muted again
+        # later by another VC room
+        await self.get_mute(guild_id).handle_join(member)
 
         if channel_id in self.generators:
             await self.on_generator_join(member, self.generators[channel_id])
@@ -296,7 +316,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 await text_channel.set_permissions(member, overwrite=overwrite)
 
                 # Let room object do its thing
-                await room.handle_join(member)
+                await room.handle_join(member, self.get_mute(guild_id))
 
                 # If on joinmute, mute user and set a timer for unmuting:
                 # This won't apply to the owner due to the filter
@@ -315,7 +335,10 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                         )
 
                         # Schedule unmute
-                        await room.schedule_unmute(member)
+                        await room.schedule_unmute(
+                            member,
+                            self.get_mute(guild_id)
+                        )
 
                     else:
                         message = await send_message(
@@ -332,7 +355,8 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                             bot=self.bot,
                             message=message,
                             owner_id=owner_id,
-                            member=member
+                            member=member,
+                            mute_manager=self.get_mute(guild_id)
                         ))
 
             except KeyError:
@@ -393,6 +417,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         :param to_channel: Voice channel that the member moved to
         """
         channel_id = channel.id
+        guild_id = channel.guild.id
 
         if channel_id in self.vc_room_map:
             owner_id = self.vc_room_map[channel_id]
@@ -408,7 +433,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                     to_owner_id = self.vc_room_map[to_channel.id]
                     to_room = self.rooms[to_owner_id]
 
-                await room.handle_leave(member, to_room, self.future_unmute)
+                await room.handle_leave(
+                    member,
+                    to_room,
+                    self.get_mute(guild_id)
+                )
 
                 # Before we remove permissions, we check that the user is
                 # not an owner.
@@ -513,7 +542,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         )
 
         room.current_mode = RoomMode.PUBLIC
-        await room.unmute_all()
+        await room.unmute_all(self.get_mute(context.guild.id))
 
     @voiceroom.command(name="joinmute")
     @VoiceroomsDecorators.pass_voiceroom
@@ -587,7 +616,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         )
         await send_simple_embed(context, "voicerooms_private")
         room.current_mode = RoomMode.PRIVATE
-        await room.unmute_all()
+        await room.unmute_all(self.get_mute(context.guild.id))
 
         for member in vc_members(room.voice_channel):
             await self.update_room_membership(room, member, True)
@@ -689,14 +718,92 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 if removed in member.roles:
                     await member.move_to(None)
 
+    @voiceroom.command(name="blacklist", aliases=["ban"])
+    @VoiceroomsDecorators.pass_voiceroom
+    async def room_blacklist(
+            self,
+            context: Context,
+            *,
+            removed: Member,
+            **kwargs
+    ) -> None:
+        """
+        Blacklist a member from a voiceroom.
+
+        :param context: Command context
+        :param removed: Discord member or role
+        """
+        room: RoomPair = kwargs["room"]
+
+        if context.author == removed:
+            raise OpheliaCommandError("voicerooms_remove_self")
+
+        await self.update_room_membership(room, removed, False)
+        await send_simple_embed(
+            context,
+            "voicerooms_blacklist",
+            removed.mention
+        )
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_blacklist").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(removed.name),
+                target_id=removed.id
+            )
+        )
+
+        if in_vc(removed, room.voice_channel):
+            await removed.move_to(None)
+
+    @voiceroom.command(name="unblacklist", aliases=["unban"])
+    @VoiceroomsDecorators.pass_voiceroom
+    async def room_unblacklist(
+            self,
+            context: Context,
+            *,
+            removed: Member,
+            **kwargs
+    ) -> None:
+        """
+        Remove a member from a room blacklist.
+
+        :param context: Command context
+        :param removed: Discord member to remove from blacklist
+        """
+        room: RoomPair = kwargs["room"]
+
+        await self.update_room_membership(room, removed, None)
+        await send_simple_embed(
+            context,
+            "voicerooms_unblacklist",
+            removed.mention
+        )
+
+        await self.message_buffer.log_system_msg(
+            log_channel=room.log_channel,
+            text_channel=room.text_channel,
+            text=disp_str("voicerooms_log_unblacklist").format(
+                room=room.voice_channel.name,
+                name=escape_formatting(context.author.name),
+                id=context.author.id,
+                target=escape_formatting(removed.name),
+                target_id=removed.id
+            )
+        )
+
     @voiceroom.command(name="mute", aliases=["silence"])
     @VoiceroomsDecorators.pass_voiceroom
     async def room_mute(
-        self,
-        context: Context,
-        *,
-        member: Member,
-        **kwargs
+            self,
+            context: Context,
+            *,
+            member: Member,
+            **kwargs
     ) -> None:
         """
         Mute a member.
@@ -724,17 +831,17 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             )
         )
 
-        await room.mute_user(member)
+        await room.mute_user(member, self.get_mute(context.guild.id))
         await send_simple_embed(context, "voicerooms_mute", member.mention)
 
     @voiceroom.command(name="unmute", aliases=["unsilence"])
     @VoiceroomsDecorators.pass_voiceroom
     async def room_unmute(
-        self,
-        context: Context,
-        *,
-        member: Member,
-        **kwargs
+            self,
+            context: Context,
+            *,
+            member: Member,
+            **kwargs
     ) -> None:
         """
         Unmte a member.
@@ -762,7 +869,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             )
         )
 
-        await room.unmute_user(member)
+        await room.unmute_user(member, self.get_mute(context.guild.id))
         await send_simple_embed(context, "voicerooms_unmute", member.mention)
 
     @voiceroom.command(name="name", aliases=["rename"])
@@ -867,7 +974,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 text=disp_str("voicerooms_log_bitrate").format(
                     name=escape_formatting(context.author.name),
                     id=context.author.id,
-                    prev=prev/1000,
+                    prev=prev / 1000,
                     curr=bitrate
                 )
             )
@@ -898,7 +1005,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             raise OpheliaCommandError("voicerooms_transfer_already_owner")
 
         try:
-            await room.transfer(old_owner, new_owner)
+            await room.transfer(
+                old_owner,
+                new_owner,
+                self.get_mute(new_owner.guild.id)
+            )
         except RoomRateLimited as e:
             raise OpheliaCommandError("voicerooms_ratelimited") from e
 
@@ -999,7 +1110,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             for num, (owner_id, room) in enumerate(private_rooms):
                 priv_rooms_descs.append(
                     disp_str("voicerooms_private_room").format(
-                        num=num + 1,    # So that it starts from 1
+                        num=num + 1,  # So that it starts from 1
                         name=room.voice_channel.name,
                         owner_id=owner_id
                     )

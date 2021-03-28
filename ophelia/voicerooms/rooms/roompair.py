@@ -10,6 +10,7 @@ from ophelia.output import disp_str, send_simple_embed
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS, in_vc, vc_members
 
 from ophelia import settings
+from ophelia.voicerooms.mute_manager import MuteManager
 
 RATELIMIT_COUNT = 2
 RATELIMIT_SECONDS = 600
@@ -108,7 +109,12 @@ class RoomPair:
         except FETCH_FAIL_EXCEPTIONS:
             pass
 
-    async def transfer(self, prev: Member, owner: Member) -> None:
+    async def transfer(
+            self,
+            prev: Member,
+            owner: Member,
+            mute_manager: MuteManager
+    ) -> None:
         """
         Transfer room to new owner.
 
@@ -117,6 +123,7 @@ class RoomPair:
 
         :param prev: Previous room owner
         :param owner: New room owner
+        :param mute_manager: Guild mute manager
         :raise RoomRateLimited: When topic changes are ratelimited
         """
 
@@ -147,7 +154,7 @@ class RoomPair:
         # Give new owner the necessary permissions
         await self.text_channel.set_permissions(owner, overwrite=owner_text)
         if in_vc(owner, self.voice_channel):
-            await owner.edit(mute=False)
+            await mute_manager.unmute(owner)
 
         # Update internal
         self.owner_id = owner.id
@@ -214,75 +221,91 @@ class RoomPair:
                 and self.current_mode == RoomMode.JOINMUTE
         )
 
-    async def mute_user(self, member: Member) -> None:
+    async def mute_user(
+            self,
+            member: Member,
+            mute_manager: MuteManager
+    ) -> None:
         """
         Mute a member.
 
         :param member: Member in channel
+        :param mute_manager: Guild mute manager
         """
         self.muted.add(member.id)
 
         if in_vc(member, self.voice_channel):
-            await member.edit(mute=True)
+            await mute_manager.mute(member)
 
-    async def unmute_user(self, member: Member) -> None:
+    async def unmute_user(
+            self,
+            member: Member,
+            mute_manager: MuteManager
+    ) -> None:
         """
         Unmute a member.
 
         :param member: Member in channel
+        :param mute_manager: Guild mute manager
         """
         self.muted.discard(member.id)
 
         if in_vc(member, self.voice_channel):
-            await member.edit(mute=False)
+            await mute_manager.unmute(member)
 
-    async def unmute_all(self) -> None:
+    async def unmute_all(self, mute_manager: MuteManager) -> None:
         """
         Unmutes all members in room.
 
         Used when switching from joinmute mode to public or private
         mode.
+
+        :param mute_manager: Guild mute manager
         """
         for member in vc_members(self.voice_channel):
             if member.id not in self.muted:
-                await member.edit(mute=False)
+                await mute_manager.unmute(member)
 
-    async def handle_join(self, member: Member) -> None:
+    async def handle_join(
+            self,
+            member: Member,
+            mute_manager: MuteManager
+    ) -> None:
         """
         Handle member joins; currently used for managing mutes.
 
         :param member: Member who just joined the channel
+        :param mute_manager: Guild mute manager
         """
         if (
                 self.current_mode == RoomMode.JOINMUTE
                 and member.id != self.owner_id
         ):
-            await member.edit(mute=True)
+            await mute_manager.mute(member)
             return
 
         if member.id in self.muted:
-            await member.edit(mute=True)
+            await mute_manager.mute(member)
 
     async def handle_leave(
             self,
             member: Member,
             to_room: Optional["RoomPair"],
-            future_unmute: Set[int]
+            mute_manager: MuteManager
     ) -> None:
         """
         Handle member exits; currently used for managing mutes.
 
         :param member: Member who just left the channel
         :param to_room: Room that the member is moving to
-        :param future_unmute: Set of user IDs who will be unmuted on
-            their next VC join
+        :param mute_manager: Guild mute manager
         """
 
         # Schedule the member for future unmuting if they leave
         # voice chat altogether
         voice_state: VoiceState = member.voice
         if voice_state is None or voice_state.channel is None:
-            future_unmute.add(member.id)
+            await mute_manager.queue_unmute(member)
 
         # If a member moves from a joinmute channel or a room where
         # they're in the mute list to somewhere else
@@ -298,43 +321,33 @@ class RoomPair:
                 if to_room.should_mute(member):
                     return
 
-                await member.edit(mute=False)
+                await mute_manager.unmute(member)
 
             # If they moved to another non-VC room
             elif voice_state is not None and voice_state.channel is not None:
-                await member.edit(mute=False)
+                await mute_manager.unmute(member)
 
-    async def schedule_unmute(self, member: Member) -> None:
+    async def schedule_unmute(
+            self,
+            member: Member,
+            mute_manager: MuteManager
+    ) -> None:
         """
         Schedule an unmute of a user after joining a room that's in
         joinmute mode.
 
         :param member: Member to be unmuted
+        :param mute_manager: Guild mute manager
         """
-
-        async def unmute_task(
-                voice_channel: VoiceChannel,
-                wait_seconds: int,
-                unmute_member: Member
-        ) -> None:
-            """
-            Internal function.
-
-            :param voice_channel: Voice channel to unmute member in
-            :param wait_seconds: Seconds to wait for before unmuting member
-            :param unmute_member: Member to unmute
-            """
-            await asyncio.sleep(wait_seconds)
-            if not in_vc(unmute_member, voice_channel):
+        async def unmute_task() -> None:
+            """Internal function."""
+            await asyncio.sleep(self.joinmute_seconds)
+            if not in_vc(member, self.voice_channel):
                 return
 
-            await unmute_member.edit(mute=False)
+            await mute_manager.unmute(member)
 
-        asyncio.create_task(unmute_task(
-            self.voice_channel,
-            self.joinmute_seconds,
-            member
-        ))
+        asyncio.create_task(unmute_task())
 
     # noinspection PyUnresolvedReferences
     async def react_unmute(
@@ -342,7 +355,8 @@ class RoomPair:
             bot: "OpheliaBot",
             message: Message,
             owner_id: int,
-            member: Member
+            member: Member,
+            mute_manager: MuteManager
     ) -> None:
         """
         Add an unmute reaction to a message to allow a room ownser to unmute
@@ -352,6 +366,7 @@ class RoomPair:
         :param message: Welcome message
         :param owner_id: Room owner ID
         :param member: Member to prepare the unmute react for
+        :param mute_manager: Guild mute manager
         """
         await message.add_reaction(VOICE_UNMUTE_EMOTE)
 
@@ -370,7 +385,7 @@ class RoomPair:
 
             # Unmute
             if in_vc(member, self.voice_channel):
-                await member.edit(mute=False)
+                await mute_manager.unmute(member)
                 await send_simple_embed(
                     self.text_channel,
                     "voicerooms_unmute_confirm",
