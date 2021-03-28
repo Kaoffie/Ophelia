@@ -276,6 +276,8 @@ voicerooms_help = """`%PREFIX%vc list` List all rooms
 `%PREFIX%vc kick` Remove member from room
 `%PREFIX%vc mute` Mute member
 `%PREFIX%vc unmute` Unmute member
+`%PREFIX%vc blacklist` Blacklist member
+`%PREFIX%vc unblacklist` Remove member from blacklist
 
 `%PREFIX%vc name` Rename room
 `%PREFIX%vc size` Set room size
