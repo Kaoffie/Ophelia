@@ -317,9 +317,10 @@ def in_vc(member: Member, channel: VoiceChannel) -> bool:
     return False
 
 
+# pylint: disable=protected-access
 def vc_is_empty(channel: VoiceChannel) -> bool:
     """
-    Check if a VC is empty wihtout using channel.members.
+    Check if a VC is empty without using channel.members.
 
     This is an emergency patch for servers that have stage channels that
     return as NoneTypes in voice states. We are thus forced to use a
@@ -329,7 +330,7 @@ def vc_is_empty(channel: VoiceChannel) -> bool:
     :return: Whether channel is empty
     """
     # noinspection PyProtectedMember
-    for user_id, state in channel.guild._voice_states.items():
+    for _, state in channel.guild._voice_states.items():
         if state.channel is not None and state.channel.id == channel.id:
             return False
 
@@ -358,3 +359,4 @@ def vc_members(channel: VoiceChannel) -> List[Member]:
                 members.append(member)
 
     return members
+# pylint: enable=protected-access

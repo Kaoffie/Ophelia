@@ -1,6 +1,6 @@
 """Events Cog Module."""
 import functools
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 
 import yaml
 from discord import (
