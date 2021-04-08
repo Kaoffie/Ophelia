@@ -62,7 +62,8 @@ class OpheliaBot(dext.commands.Bot):
 
     __slots__ = [
         "master_log_id",
-        "log_channel"
+        "log_channel",
+        "first_start"
     ]
 
     def __init__(self) -> None:
@@ -76,6 +77,7 @@ class OpheliaBot(dext.commands.Bot):
 
         self.log_channel: Optional[TextChannel] = None
         self.master_log_id: int = 1
+        self.first_start = True
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
         """
@@ -115,6 +117,11 @@ class OpheliaBot(dext.commands.Bot):
 
         This overrides the on_ready method from discord.Client.
         """
+        if self.first_start:
+            await self.on_first_ready()
+
+    async def on_first_ready(self) -> None:
+        """Ophelia's startup procedure."""
         logger.trace("Setting up master log channel.")
         log_channel = self.get_channel(settings.master_log_channel)
         if log_channel is not None and isinstance(log_channel, TextChannel):
@@ -180,6 +187,8 @@ class OpheliaBot(dext.commands.Bot):
         boostroles_cog = BoostrolesCog(self)
         self.add_cog(boostroles_cog)
         await boostroles_cog.load_roles()
+
+        self.first_start = False
 
 
 ophelia = OpheliaBot()
