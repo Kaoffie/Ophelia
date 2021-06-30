@@ -223,19 +223,14 @@ class ReactroleCog(commands.Cog, name="reactrole"):
 
         try:
             message_id = int(user_input)
+            channel: TextChannel = context.channel
 
-            guild: Guild = context.guild
-            for channel in await guild.fetch_channels():
-                if not isinstance(channel, TextChannel):
-                    continue
+            try:
+                message = await channel.fetch_message(message_id)
+                return message
+            except FETCH_FAIL_EXCEPTIONS:
+                raise ConvertNotFoundException
 
-                try:
-                    message = await channel.fetch_message(message_id)
-                    return message
-                except FETCH_FAIL_EXCEPTIONS:
-                    continue
-
-            raise ConvertNotFoundException
         except ValueError as e:
             raise ConvertFailureException from e
 
@@ -1187,6 +1182,8 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         role_options = [
             role for role in guild_roles
             if role.name in react_config.roles
+            or role.id in react_config.roles
+            or str(role.id) in react_config.roles
             or react_config.regex.fullmatch(role.name)
         ]
 
