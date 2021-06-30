@@ -26,7 +26,8 @@ import yaml
 from discord import (
     Colour, Emoji, Forbidden, Guild, HTTPException, Member, Message,
     PartialEmoji, RawBulkMessageDeleteEvent, RawMessageDeleteEvent,
-    RawReactionActionEvent, Role, TextChannel
+    RawReactionActionEvent, RawReactionClearEmojiEvent, RawReactionClearEvent,
+    Role, TextChannel
 )
 from discord.ext import commands
 from discord.ext.commands import Context
@@ -114,6 +115,18 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         await self.delete_reaction(reaction_payload)
 
     @commands.Cog.listener()
+    async def on_raw_reaction_clear_emoji(
+            self,
+            reaction_payload: RawReactionClearEmojiEvent
+    ) -> None:
+        """
+        Listener for emoji clears on a message.
+
+        :param reaction_payload: Raw emoji clear payload
+        """
+        await self.delete_reaction(reaction_payload)
+
+    @commands.Cog.listener()
     async def on_raw_message_delete(
             self,
             raw_message_delete: RawMessageDeleteEvent
@@ -124,6 +137,18 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         :param raw_message_delete: Raw deletion event
         """
         await self.delete_message(raw_message_delete.message_id)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_clear(
+            self,
+            raw_reaction_clear: RawReactionClearEvent
+    ) -> None:
+        """
+        Listener for reaction clears.
+
+        :param raw_reaction_clear: Raw reaction clear event
+        """
+        await self.delete_message(raw_reaction_clear.message_id)
 
     @commands.Cog.listener()
     async def on_raw_bulk_message_delete(
@@ -967,7 +992,10 @@ class ReactroleCog(commands.Cog, name="reactrole"):
 
     async def delete_reaction(
             self,
-            reaction_payload: RawReactionActionEvent
+            reaction_payload: Union[
+                RawReactionActionEvent,
+                RawReactionClearEmojiEvent
+            ]
     ) -> None:
         """
         Deletes a reaction config when the bot's reaction is removed.
@@ -979,12 +1007,13 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         if message_id_str not in self.config.message_configs:
             return
 
-        user_id = reaction_payload.user_id
         partial_emoji: PartialEmoji = reaction_payload.emoji
 
         # Check if this is the bot itself
-        if user_id != self.bot.user.id:
-            return
+        if isinstance(reaction_payload, RawReactionActionEvent):
+            user_id = reaction_payload.user_id
+            if user_id != self.bot.user.id:
+                return
 
         # Find reaction emote config
         if partial_emoji.is_unicode_emoji():
@@ -1002,7 +1031,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
     async def delete_message(self, message_id: int) -> None:
         """
         Deletes a message role reaction config when a message is
-        deleted.
+        deleted or cleared.
 
         :param message_id: ID of deleted message
         """

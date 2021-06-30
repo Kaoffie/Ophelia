@@ -211,7 +211,12 @@ class BoostrolesCog(commands.Cog, name="boostroles"):
         await send_simple_embed(context, "boostroles_wait")
         boost_guild: BoostrolesGuild = self.boost_guilds[context.guild.id]
         list_str = await boost_guild.update_roles()
-        await send_simple_embed(context, "boostroles_list", list_str)
+        await send_simple_embed(
+            context,
+            "boostroles_list",
+            list_str,
+            split=True
+        )
 
     @boostroles.command(name="link")
     @BoostroleDecorators.guild_staff_check

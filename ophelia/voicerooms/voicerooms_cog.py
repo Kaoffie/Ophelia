@@ -380,7 +380,11 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
                 return
 
             try:
-                room: RoomPair = await generator.create_room(member)
+                room: RoomPair = await generator.create_room(
+                    member,
+                    self.name_filter
+                )
+
                 await self.message_buffer.log_system_msg(
                     log_channel=room.log_channel,
                     text_channel=room.text_channel,

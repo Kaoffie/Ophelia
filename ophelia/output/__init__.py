@@ -25,6 +25,7 @@ from loguru import logger
 from ophelia import settings
 from ophelia.output import eng_strings
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
+from ophelia.utils.text_utils import group_strings
 
 PARENT_DIRECTORY = os.getcwd().split("ophelia")[0]
 DEFAULT_LANG = "eng"
@@ -233,7 +234,9 @@ async def send_simple_embed(
         channel: Messageable,
         disp_type: str,
         *args,
-        colour: Colour = Colour(settings.embed_color_normal)
+        colour: Colour = Colour(settings.embed_color_normal),
+        split: bool = False,
+        max_length: int = 4000
 ) -> Message:
     """
     Send a simple default coloured embed with its title and description
@@ -246,18 +249,33 @@ async def send_simple_embed(
     :param args: Arguments to be formatted into the description
     :param colour: Embed colour, defaults to normal colour defined in
         settings
+    :param split: Split description into multiple embeds if too long
+    :param max_length: Maximum length per message if split
     :return: Sent message
     """
     desc = disp_str(f"{disp_type}_desc")
     if args:
         desc = desc.format(*args)
 
-    return await send_message_embed(
+    overflow_catch = group_strings([desc], max_length=max_length)
+
+    message = await send_message_embed(
         channel=channel,
         title=disp_str(f"{disp_type}_title"),
-        desc=desc,
+        desc=overflow_catch[0] + ((not split) * "..."),
         colour=colour
     )
+
+    if split:
+        for sub_desc in overflow_catch:
+            message = await send_message_embed(
+                channel=channel,
+                title="",
+                desc=sub_desc,
+                colour=colour
+            )
+
+    return message
 
 
 async def send_error_embed(

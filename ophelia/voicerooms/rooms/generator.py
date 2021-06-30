@@ -13,6 +13,10 @@ from ophelia.utils.discord_utils import (
     overwrite_to_dict, multioverwrite_to_dict, dict_to_overwrite,
     dict_to_multioverwrite, FETCH_FAIL_EXCEPTIONS
 )
+from ophelia.voicerooms.name_filter import (
+    GuildRoomNameFilter,
+    NameFilterManager
+)
 from ophelia.voicerooms.rooms.roompair import RoomPair
 
 
@@ -97,14 +101,26 @@ class Generator:
 
         self.log_channel = log_channel
 
-    async def create_room(self, member: Member) -> Optional[RoomPair]:
+    async def create_room(
+            self,
+            member: Member,
+            name_filter: NameFilterManager
+    ) -> Optional[RoomPair]:
         """
         Create a new room pair for a user.
 
         :param member: Discord member
+        :param name_filter: Room name filter, in case the user has a
+            username that does not pass the filter rules
         :raises RoomCreationError: When room creation fails
         """
         display_name = member.display_name
+
+        # Run the display name through the filter first
+        if await name_filter.bad_name(member.guild.id, display_name):
+            # If the name is illegal, just use the member's ID
+            display_name = str(member.id)
+
         text_overwrites = copy.copy(self.default_text_perms)
         if self.owner_text_perms is not None:
             text_overwrites[member] = self.owner_text_perms
