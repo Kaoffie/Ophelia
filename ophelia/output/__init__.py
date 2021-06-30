@@ -262,7 +262,9 @@ async def send_simple_embed(
     message = await send_message_embed(
         channel=channel,
         title=disp_str(f"{disp_type}_title"),
-        desc=overflow_catch[0] + ((not split) * "..."),
+        desc=overflow_catch[0] + (
+                (len(overflow_catch) > 1 and not split) * "..."
+        ),
         colour=colour
     )
 
