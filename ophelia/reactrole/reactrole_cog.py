@@ -34,13 +34,13 @@ from discord.ext.commands import Context
 from loguru import logger
 
 from ophelia import settings
-from ophelia.output import (
+from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.output.output import (
     ConvertFailureException, ConvertNotFoundException, disp_str,
     response_convert, response_switch, response_yaml, send_embed,
     send_error_embed, send_message,
     send_simple_embed
 )
-from ophelia.output.error_handler import OpheliaCommandError
 from ophelia.reactrole.dm_lock import AbortQueue, DMLock
 from ophelia.reactrole.reactrole_config import (
     InvalidReactConfigException, MessageConfig, ReactroleConfig, RoleMenuConfig,
@@ -621,6 +621,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
             )
 
         return func
+
     # pylint: enable=too-many-branches
 
     async def gen_command_add_dm_emote(self, message: Message) -> Callable:
@@ -1140,6 +1141,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
                 guild_id,
                 emote_repr
             )
+
     # pylint: enable=too-many-branches
 
     @staticmethod
@@ -1182,9 +1184,9 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         role_options = [
             role for role in guild_roles
             if role.name in react_config.roles
-            or role.id in react_config.roles
-            or str(role.id) in react_config.roles
-            or react_config.regex.fullmatch(role.name)
+               or role.id in react_config.roles
+               or str(role.id) in react_config.roles
+               or react_config.regex.fullmatch(role.name)
         ]
 
         add_role_options: Dict[int, Role] = {}

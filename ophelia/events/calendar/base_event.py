@@ -17,7 +17,7 @@ from discord.abc import Messageable
 
 from ophelia import settings
 from ophelia.events.events_emotes import END_EVENT_EMOTE
-from ophelia.output import disp_str, send_message
+from ophelia.output.output import disp_str, send_message
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
 from ophelia.utils.time_utils import (
     to_embed_timestamp, to_utc_datetime, utc_time_now
@@ -215,11 +215,11 @@ class BaseEvent:
         """
         formatted_str = (
             string
-            .replace("%NAME%", self.organizer.display_name)
-            .replace("%TITLE%", self.title)
-            .replace("%DESC%", self.desc)
-            .replace("%PING%", self.organizer.mention)
-            .replace("%DM_MSG%", self.dm_msg)
+                .replace("%NAME%", self.organizer.display_name)
+                .replace("%TITLE%", self.title)
+                .replace("%DESC%", self.desc)
+                .replace("%PING%", self.organizer.mention)
+                .replace("%DM_MSG%", self.dm_msg)
         )
 
         if dm_target is not None:

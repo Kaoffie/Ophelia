@@ -1,6 +1,6 @@
 """Events Cog Module."""
 import functools
-from typing import Callable, Dict, List, Optional, Tuple, Union, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 from discord import (
@@ -20,18 +20,18 @@ from ophelia.events.calendar.member_event import MemberEvent
 from ophelia.events.calendar.ongoing_event import OngoingEvent
 from ophelia.events.calendar.recurring_event import RecurringEvent
 from ophelia.events.config_options import (
-    BASE_ADD_CONFIG_ITEMS, BASE_EDIT_CONFIG_ITEMS, BASE_RECURRING_CONFIG_ITEMS,
-    add_event_time_params,
-    add_edit_time_params, SETUP_CONFIG_ITEMS
+    add_edit_time_params, add_event_time_params, BASE_ADD_CONFIG_ITEMS,
+    BASE_EDIT_CONFIG_ITEMS, BASE_RECURRING_CONFIG_ITEMS, SETUP_CONFIG_ITEMS
 )
 from ophelia.events.events_emotes import (
     APPROVE_EMOTE, END_EVENT_EMOTE, NOTIF_EMOTE, REJECT_EMOTE
 )
-from ophelia.output import (
-    disp_str, response_config, response_options, send_message,
-    send_message_embed, send_simple_embed
-)
 from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.output.output import (
+    disp_str, response_config, response_options, send_message,
+    send_message_embed,
+    send_simple_embed
+)
 from ophelia.utils.discord_utils import (
     FETCH_FAIL_EXCEPTIONS,
     filter_self_react

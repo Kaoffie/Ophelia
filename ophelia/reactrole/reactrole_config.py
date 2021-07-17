@@ -13,7 +13,7 @@ reaction configuration mess.
 import asyncio
 import os
 import re
-from typing import Union, List, Optional, Dict, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import yaml
 from loguru import logger

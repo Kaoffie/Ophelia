@@ -3,18 +3,16 @@ import copy
 from typing import Dict, Optional, Union
 
 from discord import (
-    CategoryChannel, HTTPException, PermissionOverwrite, VoiceChannel, Member,
-    Role,
-    TextChannel, InvalidData
+    CategoryChannel, HTTPException, InvalidData, Member, PermissionOverwrite,
+    Role, TextChannel, VoiceChannel
 )
 
-from ophelia.output import disp_str, send_message
+from ophelia.output.output import disp_str, send_message
 from ophelia.utils.discord_utils import (
-    overwrite_to_dict, multioverwrite_to_dict, dict_to_overwrite,
-    dict_to_multioverwrite, FETCH_FAIL_EXCEPTIONS
+    dict_to_multioverwrite, dict_to_overwrite, FETCH_FAIL_EXCEPTIONS,
+    multioverwrite_to_dict, overwrite_to_dict
 )
 from ophelia.voicerooms.name_filter import (
-    GuildRoomNameFilter,
     NameFilterManager
 )
 from ophelia.voicerooms.rooms.roompair import RoomPair
@@ -81,6 +79,28 @@ class Generator:
         self.text_category = text_category
         self.generator_channel = generator_channel
 
+        # Initialize
+        self.default_text_perms = {}
+        self.owner_text_perms = None
+        self.default_voice_perms = {}
+        self.owner_voice_perms = None
+
+        self.update_perms(
+            default_text_perms,
+            owner_text_perms,
+            default_voice_perms,
+            owner_voice_perms
+        )
+
+        self.log_channel = log_channel
+
+    async def update_perms(
+            self,
+            default_text_perms: Dict[Union[Member, Role], PermissionOverwrite],
+            owner_text_perms: Optional[PermissionOverwrite],
+            default_voice_perms: Dict[Union[Member, Role], PermissionOverwrite],
+            owner_voice_perms: Optional[PermissionOverwrite]
+    ) -> None:
         self.default_text_perms = default_text_perms
         self.default_voice_perms = default_voice_perms
         self.owner_voice_perms = owner_voice_perms
@@ -97,9 +117,8 @@ class Generator:
                 read_messages=True,
                 send_messages=True
             )
-        self.owner_text_perms = owner_text_perms
 
-        self.log_channel = log_channel
+        self.owner_text_perms = owner_text_perms
 
     async def create_room(
             self,

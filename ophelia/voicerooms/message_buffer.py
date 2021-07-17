@@ -7,7 +7,7 @@ from typing import Dict, List
 from discord import Message, TextChannel
 
 from ophelia import settings
-from ophelia.output import disp_str, send_message
+from ophelia.output.output import disp_str, send_message
 from ophelia.utils.text_utils import (
     escape_formatting, group_strings,
     quotify, string_wrap
@@ -87,7 +87,6 @@ class MessageBuffer:
         :param message: Message logged
         """
         async with self.lock:
-
             self.message_buffer.setdefault(channel, []).extend(
                 self.format_message(message)
             )
@@ -110,7 +109,6 @@ class MessageBuffer:
         :param text: Text to be logged
         """
         async with self.lock:
-
             self.message_buffer.setdefault(log_channel, []).append(
                 disp_str("voicerooms_raw_header").format(
                     time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),

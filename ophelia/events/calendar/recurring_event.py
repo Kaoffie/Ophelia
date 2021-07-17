@@ -16,7 +16,7 @@ from loguru import logger
 
 from ophelia import settings
 from ophelia.events.calendar.base_event import BaseEvent, EventLoadError
-from ophelia.output import disp_str
+from ophelia.output.output import disp_str
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
 from ophelia.utils.text_utils import escape_json_formatting
 from ophelia.utils.time_utils import to_utc_datetime, utc_time_now

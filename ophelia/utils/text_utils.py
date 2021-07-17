@@ -168,11 +168,11 @@ def is_chinese(char: str) -> bool:
 
     # CJK Unified Ideographs
     if (
-            0x4e00 <= char_ord <= 0x9fff        # Unified Ideographs
-            or 0x3400 <= char_ord <= 0x4dbf     # Extension A
-            or 0x20000 <= char_ord <= 0x2a6df   # Extension B
-            or 0xf900 <= char_ord <= 0xfaff     # CJK Compat
-            or 0x2f800 <= char_ord <= 0x2fa1f   # Compat Supplement
+            0x4e00 <= char_ord <= 0x9fff  # Unified Ideographs
+            or 0x3400 <= char_ord <= 0x4dbf  # Extension A
+            or 0x20000 <= char_ord <= 0x2a6df  # Extension B
+            or 0xf900 <= char_ord <= 0xfaff  # CJK Compat
+            or 0x2f800 <= char_ord <= 0x2fa1f  # Compat Supplement
     ):
         return True
 

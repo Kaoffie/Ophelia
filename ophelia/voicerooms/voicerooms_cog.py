@@ -23,28 +23,30 @@ from discord.ext.commands import Context
 from loguru import logger
 
 from ophelia import settings
-from ophelia.output import (
-    disp_str, get_input, response_config, send_message, send_message_embed,
+from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.output.output import (
+    disp_str, get_input, response_config, response_options, response_switch,
+    send_message,
+    send_message_embed,
     send_simple_embed
 )
-from ophelia.output.error_handler import OpheliaCommandError
 from ophelia.settings import voiceroom_max_mute_time
 from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS, in_vc, vc_is_empty, vc_members
 )
 from ophelia.utils.text_utils import escape_formatting
+from ophelia.voicerooms.config_options import VOICEROOMS_GENERATOR_CONFIG
+from ophelia.voicerooms.message_buffer import MessageBuffer
 from ophelia.voicerooms.mute_manager import MuteManager
+from ophelia.voicerooms.name_filter import NameFilterManager
 from ophelia.voicerooms.rooms.generator import (
     Generator, GeneratorLoadError,
     RoomCreationError
 )
-from ophelia.voicerooms.message_buffer import MessageBuffer
 from ophelia.voicerooms.rooms.roompair import (
     RoomMode, RoomPair,
     RoomRateLimited
 )
-from ophelia.voicerooms.config_options import VOICEROOMS_GENERATOR_CONFIG
-from ophelia.voicerooms.name_filter import NameFilterManager
 
 CONFIG_VOICEROOM_TIMEOUT = settings.voiceroom_empty_timeout
 CONFIG_TIMEOUT_SECONDS = settings.long_timeout
@@ -1257,6 +1259,93 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             "voicerooms_generator_success",
             generator_channel.name
         )
+
+    @voiceroom.command(name="updategen", aliases=["updategenerator", "ug"])
+    @VoiceroomsDecorators.pass_voiceroom
+    @commands.has_guild_permissions(administrator=True)
+    async def generator_update(
+            self,
+            context: Context,
+            *,
+            channel_id_str: str,
+            **kwargs
+    ) -> None:
+        """
+        Update generator permission settings.
+
+        :param context: Command context
+        :param channel_id_str: Generator ID as a string
+        """
+        guild: Guild = context.guild
+        if not channel_id_str.isnumeric():
+            raise OpheliaCommandError("voicerooms_error_not_channel_id")
+
+        channel_id = int(channel_id_str)
+        channel = guild.get_channel(channel_id)
+        if channel_id not in self.generators or channel is None:
+            raise OpheliaCommandError("voicerooms_error_invalid_channel")
+
+        room: RoomPair = kwargs["room"]
+        author = context.author
+
+        prompt = await send_simple_embed(context.channel, "voicerooms_update")
+
+        await response_switch(
+            bot=self.bot,
+            context=context,
+            message=prompt,
+            options={
+                "y": self.confirm_update_generator(room, author, channel),
+                "n": self.cancel_update_generator
+            },
+            timeout_seconds=CONFIG_TIMEOUT_SECONDS,
+            timeout_exception=OpheliaCommandError("voicerooms_timeout")
+        )
+
+    def confirm_update_generator(
+            self,
+            room: RoomPair,
+            author: Member,
+            generator_channel: VoiceChannel
+    ) -> Callable:
+        """
+        Confirm generator update.
+
+        :param room: Room pair used as a template
+        :param author: Room owner
+        :param generator_channel: Generator to be updated
+        """
+
+        async def func(context: Context) -> None:
+            """Internal function."""
+            default_voice_perms = room.voice_channel.overwrites
+            owner_voice_perms = room.voice_channel.overwrites_for(author)
+            default_voice_perms.pop(author, None)
+
+            default_text_perms = room.text_channel.overwrites
+            owner_text_perms = room.text_channel.overwrites_for(author)
+            default_text_perms.pop(author, None)
+
+            await self.generators[generator_channel.id].update_perms(
+                default_voice_perms=default_voice_perms,
+                owner_voice_perms=owner_voice_perms,
+                default_text_perms=default_text_perms,
+                owner_text_perms=owner_text_perms
+            )
+
+            await send_simple_embed(context, "voicerooms_update_confirm")
+
+        return func
+
+    @staticmethod
+    async def cancel_update_generator(context: Context) -> None:
+        """
+        Cancel generator update.
+
+        :param context: Command context
+        :param config_vars: Ignored
+        """
+        await send_simple_embed(context, "voicerooms_update_cancel")
 
     @voiceroom.command(name="listgen", aliases=["listgenerators", "lg"])
     @commands.has_guild_permissions(administrator=True)

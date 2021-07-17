@@ -61,7 +61,6 @@ command_error_bot_missing_role = "I am missing the necessary roles to run this c
 command_error_missing_any_roles = "You do not have any of the required roles to run this command: {}."
 command_error_bot_missing_any_role = "I do not have any of the required roles to execute this command: {}."
 
-
 """'''''''''''''''
 Configuration menu
 '''''''''''''''"""
@@ -71,7 +70,6 @@ config_var_desc = "{}"
 config_var_footer = "Config step {}/{}"
 config_try_again_title = "Invalid input! Please enter the {} again."
 config_try_again_desc = "{} \n\nTries: {}/{}"
-
 
 """'''''''''''
 Reaction Roles
@@ -128,7 +126,6 @@ reactrole_cmd_delete_invalid_message_title = "Delete invalid message reaction ro
 reactrole_cmd_delete_invalid_message_desc = "I cannot reach this message ({}) with {} reaction{}, but it has been recorded in the reaction roles config. Should I delete it?\n\n**Y** | Yes\n**N** | No"
 reactrole_cmd_delete_invalid_confirm_title = "Deleted message reaction roles"
 reactrole_cmd_delete_invalid_confirm_desc = "Successfully deleted all reaction role configuration parameters for given message."
-
 
 """'''
 Events
@@ -252,7 +249,6 @@ events_forcedelete_not_int_desc = "That is not a valid event ID."
 events_forcedelete_title = "Force deleted."
 events_forcedelete_desc = "Please check `event listall` if the event you tried to delete has been properly deleted. Use `event save` to save all event configurations."
 
-
 """'''''''
 Voicerooms
 '''''''"""
@@ -285,7 +281,8 @@ voicerooms_help = """`%PREFIX%vc list` List all rooms
 `%PREFIX%vc transfer` Transfer room ownership"""
 
 voicerooms_commands_desc = voicerooms_help
-voicerooms_welcome_message = "{}\n**Voice Room Commands**\n\n> " + voicerooms_help.replace("\n", "\n> ")
+voicerooms_welcome_message = "{}\n**Voice Room Commands**\n\n> " + voicerooms_help.replace(
+    "\n", "\n> ")
 
 voicerooms_generator_title = "Create Room Generator"
 voicerooms_generator_desc = "Before configuring the generator, ensure that there is a **Sample Text Channel** and **Sample Voice Channel** that I can copy the default permissions from. In the sample channels, any permissions you assign to **yourself** will be assigned to the owner of any custom channels."
@@ -297,6 +294,13 @@ voicerooms_generator_sample_text_channel = "Text channel (ID) to copy permission
 voicerooms_generator_log_channel = "Log channel for all text channel messages."
 voicerooms_generator_success_title = "Created new generator."
 voicerooms_generator_success_desc = "You may now create temporary voice channels by joining {}."
+
+voicerooms_update_title = "Update Generator Permissions"
+voicerooms_update_desc = "Your current voiceroom will be used as a template for new voicerooms (Permissions assigned to **you** will be assigned to future channel owners). Should I proceed? (y/n)"
+voicerooms_update_confirm_title = "Updated Generator Permissions"
+voicerooms_update_confirm_desc = "Please check if the updated permissions are correct by creating a new room."
+voicerooms_update_cancel_title = "Action Cancelled."
+voicerooms_update_cancel_desc = "To update generator permissions, use the `%PREFIX%vc updategen` command."
 
 voicerooms_raw_header = "**{time}** in **#{channel}**\n{text}"
 voicerooms_log_header = "**{time}** in **#{channel}**\n**{name}:** ({id})"

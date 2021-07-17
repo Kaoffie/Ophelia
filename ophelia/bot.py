@@ -18,8 +18,8 @@ from loguru import logger
 from ophelia import settings
 from ophelia.boostroles.boostroles_cog import BoostrolesCog
 from ophelia.events.events_cog import EventsCog
-from ophelia.output import send_message
 from ophelia.output.error_handler import handle_command_error
+from ophelia.output.output import send_message
 from ophelia.reactrole.reactrole_cog import ReactroleCog
 from ophelia.voicerooms.voicerooms_cog import VoiceroomsCog
 

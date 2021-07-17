@@ -20,10 +20,11 @@ from ophelia.events.calendar.recurring_event import RecurringEvent
 from ophelia.events.events_emotes import (
     APPROVE_EMOTE, NOTIF_EMOTE, REJECT_EMOTE
 )
-from ophelia.output import (
-    disp_str, send_embed, send_message, send_simple_embed
-)
 from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.output.output import (
+    disp_str, send_embed, send_message,
+    send_simple_embed
+)
 from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS
 
 EVENT_TYPES = {

@@ -5,7 +5,6 @@ Command errors are all handled here. There is a send_error_embed
 function that is in __init__ since it isn't tied to the command error
 system though.
 """
-import traceback
 
 from discord import Forbidden
 from discord.ext.commands import (
@@ -15,7 +14,7 @@ from discord.ext.commands import (
 )
 from loguru import logger
 
-from ophelia.output import disp_str, send_error_embed
+from ophelia.output.output import disp_str, send_error_embed
 
 COMMAND_ERRORS = {
     "UserInputError": "command_error_user_input_error",

@@ -4,15 +4,13 @@ Voicerooms Configuration module.
 Contains the options required to set up a voiceroom generator.
 """
 
-
 from typing import List
 
-from ophelia.output import ConfigItem, disp_str
+from ophelia.output.output import ConfigItem, disp_str
 from ophelia.utils.discord_utils import (
     extract_category_config, extract_text_config,
     extract_voice_config
 )
-
 
 VOICEROOMS_GENERATOR_CONFIG: List[ConfigItem] = []
 for category in ["voice_category", "text_category"]:

@@ -6,10 +6,9 @@ from typing import Callable, Optional, Set
 
 from discord import Member, Message, TextChannel, VoiceChannel, VoiceState
 
-from ophelia.output import disp_str, send_simple_embed
-from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS, in_vc, vc_members
-
 from ophelia import settings
+from ophelia.output.output import disp_str, send_simple_embed
+from ophelia.utils.discord_utils import FETCH_FAIL_EXCEPTIONS, in_vc, vc_members
 from ophelia.voicerooms.mute_manager import MuteManager
 
 RATELIMIT_COUNT = 2
@@ -339,6 +338,7 @@ class RoomPair:
         :param member: Member to be unmuted
         :param mute_manager: Guild mute manager
         """
+
         async def unmute_task() -> None:
             """Internal function."""
             await asyncio.sleep(self.joinmute_seconds)

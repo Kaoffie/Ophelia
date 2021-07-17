@@ -19,8 +19,8 @@ from ophelia.boostroles.boostroles_guild import (
     BoostrolesGuild,
     InvalidBoostroleGuild
 )
-from ophelia.output import send_simple_embed
 from ophelia.output.error_handler import OpheliaCommandError
+from ophelia.output.output import send_simple_embed
 
 CONFIG_PATH = settings.file_boostroles_config
 
@@ -87,6 +87,7 @@ class BoostrolesCog(commands.Cog, name="boostroles"):
                     return await func(self, context, *args, **kwargs)
 
             return wrapped
+
     # pylint: enable=too-few-public-methods
 
     async def cog_save_all(self) -> None:

@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from discord import Guild, Member, Permissions, Role
 from loguru import logger
 
-from ophelia.output import disp_str
+from ophelia.output.output import disp_str
 from ophelia.utils.discord_utils import (
     ARGUMENT_FAIL_EXCEPTIONS,
     FETCH_FAIL_EXCEPTIONS

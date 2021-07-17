@@ -7,7 +7,7 @@ server, as well as the steps for adding and editing an event.
 import copy
 from typing import List
 
-from ophelia.output import ConfigItem, disp_str
+from ophelia.output.output import ConfigItem, disp_str
 from ophelia.utils.discord_utils import (
     extract_role_config,
     extract_text_config, get_channel_id
@@ -38,7 +38,6 @@ BASE_ADD_CONFIG_ITEMS.append(ConfigItem(
     nonify_link
 ))
 
-
 # Recurring event base options
 
 BASE_RECURRING_CONFIG_ITEMS = copy.copy(BASE_ADD_CONFIG_ITEMS)
@@ -66,7 +65,6 @@ BASE_RECURRING_CONFIG_ITEMS += [
         bounded_intify(minimum=1)
     )
 ]
-
 
 # Guild event calendar setup config options
 
@@ -109,7 +107,6 @@ SETUP_CONFIG_ITEMS.append(ConfigItem(
     disp_str("events_setup_event_timeout"),
     intify
 ))
-
 
 # Event edit base config items
 

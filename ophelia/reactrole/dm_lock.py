@@ -14,7 +14,7 @@ Also this file has more comments than actual code so that's fun.
 """
 
 from asyncio import Lock
-from typing import Dict, Callable, Any, Set
+from typing import Any, Callable, Dict, Set
 
 
 class AbortQueue(Exception):
