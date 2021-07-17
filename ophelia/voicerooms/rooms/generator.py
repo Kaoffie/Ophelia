@@ -85,7 +85,7 @@ class Generator:
         self.default_voice_perms = {}
         self.owner_voice_perms = None
 
-        self.update_perms(
+        await self.update_perms(
             default_text_perms,
             owner_text_perms,
             default_voice_perms,
