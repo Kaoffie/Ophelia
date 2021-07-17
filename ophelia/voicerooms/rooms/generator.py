@@ -85,7 +85,7 @@ class Generator:
         self.default_voice_perms = {}
         self.owner_voice_perms = None
 
-        await self.update_perms(
+        self.update_perms(
             default_text_perms,
             owner_text_perms,
             default_voice_perms,
@@ -94,7 +94,7 @@ class Generator:
 
         self.log_channel = log_channel
 
-    async def update_perms(
+    def update_perms(
             self,
             default_text_perms: Dict[Union[Member, Role], PermissionOverwrite],
             owner_text_perms: Optional[PermissionOverwrite],

@@ -1326,7 +1326,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             owner_text_perms = room.text_channel.overwrites_for(author)
             default_text_perms.pop(author, None)
 
-            await self.generators[generator_channel.id].update_perms(
+            self.generators[generator_channel.id].update_perms(
                 default_voice_perms=default_voice_perms,
                 owner_voice_perms=owner_voice_perms,
                 default_text_perms=default_text_perms,
