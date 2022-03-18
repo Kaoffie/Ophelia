@@ -129,7 +129,7 @@ class RoomPair:
         # Update topic
         async def change_topic() -> None:
             """Inner function."""
-            await self.text_channel.edit(
+            self.text_channel = await self.text_channel.edit(
                 topic=disp_str("voicerooms_topic_format").format(
                     owner.display_name
                 )
@@ -178,8 +178,8 @@ class RoomPair:
 
         async def change_name() -> None:
             """Inner function."""
-            await self.text_channel.edit(name=new_name)
-            await self.voice_channel.edit(name=new_name)
+            self.text_channel = await self.text_channel.edit(name=new_name)
+            self.voice_channel = await self.voice_channel.edit(name=new_name)
 
         await self.do_rate_limit(change_name)
 

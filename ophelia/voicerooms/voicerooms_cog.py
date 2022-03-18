@@ -938,7 +938,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         prev: int = room.voice_channel.user_limit
 
         try:
-            await room.voice_channel.edit(user_limit=size)
+            room.voice_channel = await room.voice_channel.edit(user_limit=size)
             await self.message_buffer.log_system_msg(
                 log_channel=room.log_channel,
                 text_channel=room.text_channel,
@@ -973,7 +973,9 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         prev: int = room.voice_channel.bitrate
 
         try:
-            await room.voice_channel.edit(bitrate=bitrate * 1000)
+            room.voice_channel = await room.voice_channel.edit(
+                bitrate=bitrate * 1000
+            )
             await self.message_buffer.log_system_msg(
                 log_channel=room.log_channel,
                 text_channel=room.text_channel,
@@ -1037,7 +1039,7 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
             )
         )
 
-        await room.text_channel.edit(
+        room.text_channel = await room.text_channel.edit(
             topic=disp_str(
                 "voicerooms_topic_format"
             ).format(new_owner.display_name)

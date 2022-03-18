@@ -138,7 +138,7 @@ class GuildEventLog:
             message: Message,
             approve_text: str,
             rejection: bool = False
-    ) -> None:
+    ) -> Message:
         """
         Edit a message to indicate that something has been approved or
         rejected.
@@ -155,7 +155,7 @@ class GuildEventLog:
             else:
                 embed.colour = Colour(settings.embed_color_success)
 
-            await message.edit(content=approve_text, embed=embed)
+            return await message.edit(content=approve_text, embed=embed)
 
     @staticmethod
     async def parse_guild_config(

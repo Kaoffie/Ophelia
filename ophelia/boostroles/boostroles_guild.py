@@ -314,7 +314,7 @@ class BoostrolesGuild:
                 mentionable=self.mentionable
             )
 
-            await role.edit(position=self.insertion_pos)
+            role = await role.edit(position=self.insertion_pos)
             await self.link_role(role, booster, target)
             await target.add_roles(role)
             return role

@@ -41,7 +41,7 @@ class MuteManager:
                 return
 
             try:
-                await member.edit(mute=True)
+                member = await member.edit(mute=True)
                 self.bot_muted.add(member.id)
             except FETCH_FAIL_EXCEPTIONS:
                 pass
@@ -59,7 +59,7 @@ class MuteManager:
             self.bot_muted.discard(member.id)
 
             try:
-                await member.edit(mute=False)
+                member = await member.edit(mute=False)
             except FETCH_FAIL_EXCEPTIONS:
                 # Schedule the member for a future unmute
                 self.unmute_queue.add(member.id)
@@ -109,7 +109,7 @@ class MuteManager:
         async with self.mute_lock:
             if member.id in self.unmute_queue:
                 try:
-                    await member.edit(mute=False)
+                    member = await member.edit(mute=False)
                     self.unmute_queue.discard(member.id)
                 except FETCH_FAIL_EXCEPTIONS:
                     # We'll get 'em next time
