@@ -15,7 +15,7 @@ from discord import (
 from discord.abc import GuildChannel
 from discord.ext.commands import Context
 
-FETCH_FAIL_EXCEPTIONS = (NotFound, Forbidden, HTTPException)
+FETCH_FAIL_EXCEPTIONS = (NotFound, Forbidden, HTTPException, AttributeError)
 ARGUMENT_FAIL_EXCEPTIONS = (NotFound, Forbidden, HTTPException, InvalidArgument)
 
 CHANNEL_REGEX = r"<#([0-9]+)>"

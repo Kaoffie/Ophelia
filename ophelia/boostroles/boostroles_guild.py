@@ -81,6 +81,9 @@ class Boostrole:
             booster = await guild.fetch_member(booster_id)
             target = await guild.fetch_member(target_id)
 
+            if role is None:
+                raise KeyError
+
             return cls(role, booster, target)
 
         except (*FETCH_FAIL_EXCEPTIONS, KeyError) as e:
@@ -132,10 +135,11 @@ class Boostrole:
                 )
                 await self.target.add_roles(self.role)
         except FETCH_FAIL_EXCEPTIONS:
-            logger.trace(
+            logger.warning(
                 "Could not add/remove role {}; "
                 "perhaps user has left guild?",
-                self.role.name
+                self.role.name if self.role is not None
+                else self.target.display_name
             )
 
         return is_boosting
