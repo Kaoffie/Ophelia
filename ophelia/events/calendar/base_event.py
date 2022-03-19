@@ -84,7 +84,7 @@ class EventEdit:
         embed.set_image(url=self.new_image)
         embed.set_author(
             name=old_event.organizer.display_name,
-            icon_url=old_event.organizer.avatar_url
+            icon_url=old_event.organizer.avatar.url
         )
 
         return embed
@@ -290,7 +290,7 @@ class BaseEvent:
         embed.set_footer(text=disp_str("events_time_footer"))
         embed.set_author(
             name=self.organizer.display_name,
-            icon_url=self.organizer.avatar_url
+            icon_url=self.organizer.avatar.url
         )
 
         return embed
