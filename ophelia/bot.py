@@ -7,11 +7,10 @@ import asyncio
 import copy
 import sys
 import traceback
-from abc import ABC
 from typing import Optional
 
 import yaml
-from discord import ext as dext, TextChannel
+from discord import ext as dext, Intents, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Context
 from loguru import logger
@@ -58,7 +57,7 @@ yaml.SafeLoader.construct_mapping = construct_mapping
 
 
 # Actual bot stuff starts here
-class OpheliaBot(dext.commands.Bot, ABC):
+class OpheliaBot(dext.commands.Bot):
     """Ophelia Discord bot."""
 
     __slots__ = [
@@ -69,11 +68,16 @@ class OpheliaBot(dext.commands.Bot, ABC):
 
     def __init__(self) -> None:
         """Initializer for the OpheliaBot class."""
+        intents = Intents.default()
+        intents.members = True
+        intents.message_content = True
+
         super().__init__(
             command_prefix=settings.command_prefix,
             help_command=None,
             description=settings.bot_description,
-            owner_ids=settings.bot_owners
+            owner_ids=settings.bot_owners,
+            intents=intents
         )
 
         self.log_channel: Optional[TextChannel] = None
