@@ -7,7 +7,11 @@ Modules
 - Custom VC Rooms
 - Server Boost Roles
 
-Too busy to write anything more than this so here you go
+(March 2022): This bot was written in 2020, back when slash commands weren't widespread and message/member intents weren't enforced. Discord has changed a lot since then, and a lot of the tasks this bot was created to do can now be done with built-in Discord features.
+
+I'm still maintaining the bot to ensure that it works on newer versions of the Discord API, but there are no plans to add new features or edit existing ones because I don't have any time. Feel free to submit pull requests though.
+
+If the opportunity arises, I might rewrite the bot, but it's been a few years since I've had that much free time and motivation to rewrite something.
 
 ---
 
@@ -65,14 +69,6 @@ For tracking and updating server boost reward roles.
 - `&boost sync` Same command as above
 - `&boost link <booster> <role> [target]` Link a role to a user's boost status
 - `&boost add <booster> <target> <colour> <name>` Add a new boost role
-
----
-
-# Coming Soon
-(If I have the time, which is highly unlikely)
-
-- Banner slideshow
-
 
 
 
