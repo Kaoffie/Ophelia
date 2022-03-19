@@ -10,6 +10,7 @@ __pycache__/
 new-env/
 proj-env/
 py38-env/
+oph-env/
 
 # Distribution / packaging
 .Python

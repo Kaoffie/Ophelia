@@ -554,7 +554,7 @@ class ReactroleCog(commands.Cog, name="reactrole"):
                 # We don't use the emote functions from text utils b/c
                 # that'd be inefficient, but the algorithm for getting
                 # the emotes is basically the same here.
-                if emote_repr in emoji.UNICODE_EMOJI:
+                if emote_repr in emoji.EMOJI_UNICODE_ENGLISH:
                     add_pile.append((emote_repr, role))
                     continue
 

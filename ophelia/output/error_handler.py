@@ -101,11 +101,11 @@ async def handle_command_error(
         elif isinstance(exception, MissingPermissions):
             error_message = disp_str(
                 "command_error_missing_permissions"
-            ).format(", ".join(exception.missing_perms))
+            ).format(", ".join(exception.missing_permissions))
         elif isinstance(exception, BotMissingPermissions):
             error_message = disp_str(
                 "command_error_bot_missing_permissions"
-            ).format(", ".join(exception.missing_perms))
+            ).format(", ".join(exception.missing_permissions))
         elif isinstance(exception, MissingRole):
             error_message = disp_str(
                 "command_error_missing_role"

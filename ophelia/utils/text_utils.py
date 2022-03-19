@@ -189,7 +189,7 @@ def is_possibly_emoji(string: str) -> bool:
     """
     emote_repr = string.strip()
 
-    if emote_repr in emoji.UNICODE_EMOJI:
+    if emote_repr in emoji.EMOJI_UNICODE_ENGLISH:
         return True
 
     matches = re.search(EMOTE_REGEX, emote_repr)
@@ -212,7 +212,7 @@ def extract_emoji(string: str, bot: Bot) -> Optional[Union[str, Emoji]]:
         are found
     """
     emote_repr = string.strip()
-    if emote_repr in emoji.UNICODE_EMOJI:
+    if emote_repr in emoji.EMOJI_UNICODE_ENGLISH:
         return emote_repr
 
     matches = re.search(EMOTE_REGEX, emote_repr)
