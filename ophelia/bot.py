@@ -7,6 +7,7 @@ import asyncio
 import copy
 import sys
 import traceback
+from abc import ABC
 from typing import Optional
 
 import yaml
@@ -57,7 +58,7 @@ yaml.SafeLoader.construct_mapping = construct_mapping
 
 
 # Actual bot stuff starts here
-class OpheliaBot(dext.commands.Bot):
+class OpheliaBot(dext.commands.Bot, ABC):
     """Ophelia Discord bot."""
 
     __slots__ = [
@@ -211,7 +212,8 @@ async def stop_command(context: Context) -> None:
     for name in copy.copy(list(ophelia.cogs.keys())):
         cog = ophelia.cogs[name]
         logger.info("Closing cog: {}", name)
-        await cog.cog_save_all()
+        if hasattr(cog, "cog_save_all"):
+            await cog.cog_save_all()
 
         # Wait for the cog to close.
         await asyncio.sleep(5)

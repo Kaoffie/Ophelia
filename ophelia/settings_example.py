@@ -41,7 +41,7 @@ logs (without accessing the console).
 command_prefix = "&"
 
 # Bot Description (Shown in help)
-bot_description = "Ophelia: Automoderator bot written by Kaoffie using discord.py"
+bot_description = "Ophelia: Automoderator bot written by Kaoffie using Pycord"
 
 # Discord bot token
 bot_token = ""

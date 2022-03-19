@@ -214,12 +214,11 @@ class BaseEvent:
             actual values.
         """
         formatted_str = (
-            string
-                .replace("%NAME%", self.organizer.display_name)
-                .replace("%TITLE%", self.title)
-                .replace("%DESC%", self.desc)
-                .replace("%PING%", self.organizer.mention)
-                .replace("%DM_MSG%", self.dm_msg)
+            string.replace("%NAME%", self.organizer.display_name)
+                  .replace("%TITLE%", self.title)
+                  .replace("%DESC%", self.desc)
+                  .replace("%PING%", self.organizer.mention)
+                  .replace("%DM_MSG%", self.dm_msg)
         )
 
         if dm_target is not None:

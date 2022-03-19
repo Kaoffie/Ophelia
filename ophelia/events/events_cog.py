@@ -530,7 +530,7 @@ class EventsCog(commands.Cog, name="events"):
                 colour=Colour(settings.embed_color_success)
             )
 
-            await self.save_guild_to_database(guild_id)
+            await self.save_guild_to_database(str(guild_id))
 
         except GuildEventInvalidConfig as e:
             raise OpheliaCommandError("events_guild_event_invalid") from e

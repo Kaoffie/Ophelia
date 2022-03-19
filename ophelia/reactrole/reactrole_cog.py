@@ -1183,10 +1183,11 @@ class ReactroleCog(commands.Cog, name="reactrole"):
         guild_roles = guild.roles
         role_options = [
             role for role in guild_roles
-            if role.name in react_config.roles
-               or role.id in react_config.roles
-               or str(role.id) in react_config.roles
-               or react_config.regex.fullmatch(role.name)
+            if (role.name in react_config.roles
+                or role.id in react_config.roles
+                or str(role.id) in react_config.roles
+                or react_config.regex.fullmatch(role.name)
+            )
         ]
 
         add_role_options: Dict[int, Role] = {}

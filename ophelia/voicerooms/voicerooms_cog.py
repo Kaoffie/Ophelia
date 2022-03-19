@@ -25,10 +25,8 @@ from loguru import logger
 from ophelia import settings
 from ophelia.output.error_handler import OpheliaCommandError
 from ophelia.output.output import (
-    disp_str, get_input, response_config, response_options, response_switch,
-    send_message,
-    send_message_embed,
-    send_simple_embed
+    disp_str, get_input, response_config, response_switch,
+    send_message, send_message_embed, send_simple_embed
 )
 from ophelia.settings import voiceroom_max_mute_time
 from ophelia.utils.discord_utils import (
@@ -1345,7 +1343,6 @@ class VoiceroomsCog(commands.Cog, name="voicerooms"):
         Cancel generator update.
 
         :param context: Command context
-        :param config_vars: Ignored
         """
         await send_simple_embed(context, "voicerooms_update_cancel")
 

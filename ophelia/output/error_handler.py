@@ -117,11 +117,11 @@ async def handle_command_error(
         elif isinstance(exception, MissingAnyRole):
             error_message = disp_str(
                 "command_error_missing_any_role"
-            ).format(", ".join(role.name for role in exception.missing_roles))
+            ).format(", ".join(role for role in exception.missing_roles))
         elif isinstance(exception, BotMissingAnyRole):
             error_message = disp_str(
                 "command_error_bot_missing_any_role"
-            ).format(", ".join(role.name for role in exception.missing_roles))
+            ).format(", ".join(role for role in exception.missing_roles))
         else:
             logger.error(
                 "Ignored command error {} "
